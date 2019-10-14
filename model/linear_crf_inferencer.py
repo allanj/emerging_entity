@@ -31,7 +31,31 @@ class LinearCRF(nn.Module):
         init_transition[:, self.pad_idx] = -10000.0
         init_transition[self.pad_idx, :] = -10000.0
 
+        if config.add_label_constraint:
+            ## adding the label constraints.
+            self.add_contraints(transition=init_transition)
+
         self.transition = nn.Parameter(init_transition)
+
+
+    def add_contraints(self, transition: torch.Tensor) -> None:
+        for l1 in range(self.label_size):
+            previous_label = self.labels[l1]
+            if l1 == self.start_idx or l1 == self.end_idx or l1 == self.pad_idx:
+                continue
+            for l2 in range(self.label_size):
+                if l2 == self.start_idx or l2 == self.end_idx or l2 == self.pad_idx:
+                    continue
+                next_label = self.labels[l2]
+                if previous_label.startswith("O") and (next_label.startswith("I-") or next_label.startswith("E-")):
+                    transition[l1, l2] = -10000.0
+                if previous_label.startswith("B-") or previous_label.startswith("I-"):
+                    if next_label.startswith("B-") or next_label.startswith("S-") or next_label.startswith(
+                            "O") or next_label[2:] != previous_label[2:]:
+                        transition[l1, l2] = -10000.0
+                if previous_label.startswith("S-") or previous_label.startswith("E-"):
+                    if next_label.startswith("I-") or next_label.startswith("E-"):
+                        transition[l1, l2] = -10000.0
 
     @overrides
     def forward(self, lstm_scores, word_seq_lens, tags, mask):

@@ -1,0 +1,18 @@
+
+### IDE files
+.idea/*
+
+## cache files
+*.pyc
+
+
+## model files
+*.conf
+*.m
+
+##sample data files
+*.txt
+
+## result files
+*.results
+

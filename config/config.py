@@ -17,6 +17,7 @@ START = "<START>"
 STOP = "<STOP>"
 PAD = "<PAD>"
 
+
 class ContextEmb(Enum):
     none = 0
     elmo = 1
@@ -61,6 +62,10 @@ class Config:
         self.use_char_rnn = args.use_char_rnn
         self.use_crf_layer = args.use_crf_layer
 
+        self.use_fined_labels = args.use_fined_labels
+        self.add_label_constraint = args.add_label_constraint
+        self.new_type = args.new_type
+
         # Data specification
         self.dataset = args.dataset
         self.train_file = "data/" + self.dataset + "/train.txt"
@@ -68,6 +73,8 @@ class Config:
         self.test_file = "data/" + self.dataset + "/test.txt"
         self.label2idx = {}
         self.idx2labels = []
+        self.fined_label2idx = {}
+        self.idx2fined_labels = []
         self.char2idx = {}
         self.idx2char = []
         self.num_char = 0
@@ -191,11 +198,32 @@ class Config:
         """
         self.label2idx[self.PAD] = len(self.label2idx)
         self.idx2labels.append(self.PAD)
+        if self.use_fined_labels:
+            self.fined_label2idx[self.PAD] = len(self.fined_label2idx)
+            self.idx2fined_labels.append(self.PAD)
         for inst in insts:
             for label in inst.output:
                 if label not in self.label2idx:
                     self.idx2labels.append(label)
                     self.label2idx[label] = len(self.label2idx)
+
+                if self.use_fined_labels and label not in self.fined_label2idx:
+                    self.idx2fined_labels.append(label)
+                    self.fined_label2idx[label] = len(self.fined_label2idx)
+                    if label != "O":
+                        negative_label = label + "_NOT"
+                        self.idx2fined_labels.append(negative_label)
+                        self.fined_label2idx[negative_label] = len(self.fined_label2idx)
+
+        if self.use_fined_labels:
+            self.label2idx[self.B + self.new_type] = len(self.label2idx)
+            self.idx2labels.append(self.B + self.new_type)
+            self.label2idx[self.I + self.new_type] = len(self.label2idx)
+            self.idx2labels.append(self.I + self.new_type)
+            self.label2idx[self.E + self.new_type] = len(self.label2idx)
+            self.idx2labels.append(self.E + self.new_type)
+            self.label2idx[self.S + self.new_type] = len(self.label2idx)
+            self.idx2labels.append(self.S + self.new_type)
 
         self.label2idx[self.START_TAG] = len(self.label2idx)
         self.idx2labels.append(self.START_TAG)
@@ -204,6 +232,16 @@ class Config:
         self.label_size = len(self.label2idx)
         print("#labels: {}".format(self.label_size))
         print("label 2idx: {}".format(self.label2idx))
+
+        if self.use_fined_labels:
+            self.fined_label2idx[self.START_TAG] = len(self.fined_label2idx)
+            self.idx2fined_labels.append(self.START_TAG)
+            self.fined_label2idx[self.STOP_TAG] = len(self.fined_label2idx)
+            self.idx2fined_labels.append(self.STOP_TAG)
+            self.fined_label_size = len(self.fined_label2idx)
+            print("#fined labels: {}".format(self.fined_label_size))
+            print("fined label 2idx: {}".format(self.fined_label2idx))
+
 
     def use_iobes(self, insts: List[Instance]) -> None:
         """

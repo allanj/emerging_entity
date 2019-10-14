@@ -55,6 +55,11 @@ def parse_arguments(parser):
     parser.add_argument('--context_emb', type=str, default="none", choices=["none", "elmo"],
                         help="contextual word embedding")
 
+    parser.add_argument('--use_fined_labels', type=int, default=0, choices=[0, 1], help="Use finer labels before going to the CRF layer")
+    parser.add_argument('--add_label_constraint', type=int, default=0, choices=[0, 1], help="Add BIES constraints")
+    parser.add_argument('--new_type', type=str, default="MISC", help="The new entity type for zero-shot entity recognition.")
+
+
     args = parser.parse_args()
     for k in args.__dict__:
         print(k + ": " + str(args.__dict__[k]))
@@ -175,17 +180,13 @@ def main():
         load_elmo_vec(conf.dev_file + "." + conf.context_emb.name + ".vec", devs)
         load_elmo_vec(conf.test_file + "." + conf.context_emb.name + ".vec", tests)
 
-    conf.use_iobes(trains)
-    conf.use_iobes(devs)
-    conf.use_iobes(tests)
-    conf.build_label_idx(trains)
+    conf.use_iobes(trains + devs + tests)
+    conf.build_label_idx(trains + devs + tests)
 
     conf.build_word_idx(trains, devs, tests)
     conf.build_emb_table()
 
-    conf.map_insts_ids(trains)
-    conf.map_insts_ids(devs)
-    conf.map_insts_ids(tests)
+    conf.map_insts_ids(trains + devs + tests)
 
     print("num chars: " + str(conf.num_char))
     # print(str(config.char2idx))
