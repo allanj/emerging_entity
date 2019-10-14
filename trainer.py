@@ -31,7 +31,7 @@ def parse_arguments(parser):
     parser.add_argument('--seed', type=int, default=42, help="random seed")
     parser.add_argument('--digit2zero', action="store_true", default=True,
                         help="convert the number to 0, make it true is better")
-    parser.add_argument('--dataset', type=str, default="conll2003")
+    parser.add_argument('--dataset', type=str, default="conll2003", choices=["conll2003", "conll2003/dataset"], help="whether use new dataset")
     parser.add_argument('--embedding_file', type=str, default="data/glove.6B.100d.txt",
                         help="we will be using random embeddings if file do not exist")
     parser.add_argument('--embedding_dim', type=int, default=100)
@@ -146,7 +146,7 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
 
 def evaluate_model(config: Config, model: NNCRF, batch_insts_ids, name: str, insts: List[Instance]):
     ## evaluation
-    metrics = np.asarray([0, 0, 0], dtype=int)
+    metrics = np.asarray([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=int)
     batch_id = 0
     batch_size = config.batch_size
     for batch in batch_insts_ids:
@@ -158,7 +158,32 @@ def evaluate_model(config: Config, model: NNCRF, batch_insts_ids, name: str, ins
     precision = p * 1.0 / total_predict * 100 if total_predict != 0 else 0
     recall = p * 1.0 / total_entity * 100 if total_entity != 0 else 0
     fscore = 2.0 * precision * recall / (precision + recall) if precision != 0 or recall != 0 else 0
+
+    p_per, total_predict_per, total_entity_per = metrics[3], metrics[4], metrics[5]
+    precision_per = p_per * 1.0 / total_predict_per * 100 if total_predict_per != 0 else 0
+    recall_per = p_per * 1.0 / total_entity_per * 100 if total_entity_per != 0 else 0
+    fscore_per = 2.0 * precision_per * recall_per / (precision_per + recall_per) if precision_per != 0 or recall_per != 0 else 0
+
+    p_loc, total_predict_loc, total_entity_loc = metrics[6], metrics[7], metrics[8]
+    precision_loc = p_loc * 1.0 / total_predict_loc * 100 if total_predict_loc != 0 else 0
+    recall_loc = p_loc * 1.0 / total_entity_loc * 100 if total_entity_loc != 0 else 0
+    fscore_loc = 2.0 * precision_loc * recall_loc / (precision_loc + recall_loc) if precision_loc != 0 or recall_loc != 0 else 0
+    
+    p_org, total_predict_org, total_entity_org = metrics[9], metrics[10], metrics[11]
+    precision_org = p_org * 1.0 / total_predict_org * 100 if total_predict_org != 0 else 0
+    recall_org = p_org * 1.0 / total_entity_org * 100 if total_entity_org != 0 else 0
+    fscore_org = 2.0 * precision_org * recall_org / (precision_org + recall_org) if precision_org != 0 or recall_org != 0 else 0
+
+    p_misc, total_predict_misc, total_entity_misc = metrics[12], metrics[13], metrics[14]
+    precision_misc = p_misc * 1.0 / total_predict_misc * 100 if total_predict_misc != 0 else 0
+    recall_misc = p_misc * 1.0 / total_entity_misc * 100 if total_entity_misc != 0 else 0
+    fscore_misc = 2.0 * precision_misc * recall_misc / (precision_misc + recall_misc) if precision_misc != 0 or recall_misc != 0 else 0
+
     print("[%s set] Precision: %.2f, Recall: %.2f, F1: %.2f" % (name, precision, recall, fscore), flush=True)
+    print("[label per] Precision: %.2f, Recall: %.2f, F1: %.2f" % (precision_per, recall_per, fscore_per), flush=True)
+    print("[label loc] Precision: %.2f, Recall: %.2f, F1: %.2f" % (precision_loc, recall_loc, fscore_loc), flush=True)
+    print("[label org] Precision: %.2f, Recall: %.2f, F1: %.2f" % (precision_org, recall_org, fscore_org), flush=True)
+    print("[label misc] Precision: %.2f, Recall: %.2f, F1: %.2f" % (precision_misc, recall_misc, fscore_misc), flush=True)
     return [precision, recall, fscore]
 
 
