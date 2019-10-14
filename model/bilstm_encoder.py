@@ -77,7 +77,7 @@ class BiLSTMEncoder(nn.Module):
         ## fined label must be "_NOT"
         assert  fined_label.endswith("_NOT")
         for coarse_label in self.label2idx:
-            if coarse_label[:2] == fined_label[:2] and fined_label[:-4] == coarse_label:
+            if coarse_label[:2] == fined_label[:2] and fined_label[:-4] != coarse_label:
                 yield self.label2idx[coarse_label]
 
     @overrides
