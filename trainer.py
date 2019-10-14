@@ -31,7 +31,7 @@ def parse_arguments(parser):
     parser.add_argument('--seed', type=int, default=42, help="random seed")
     parser.add_argument('--digit2zero', action="store_true", default=True,
                         help="convert the number to 0, make it true is better")
-    parser.add_argument('--dataset', type=str, default="conll2003", choices=["conll2003", "conll2003/dataset"], help="whether use new dataset")
+    parser.add_argument('--dataset', type=str, default="conll2003", choices=["conll2003", "conll2003/dataset", "ontonotes"], help="whether use new dataset")
     parser.add_argument('--embedding_file', type=str, default="data/glove.6B.100d.txt",
                         help="we will be using random embeddings if file do not exist")
     parser.add_argument('--embedding_dim', type=int, default=100)
@@ -195,9 +195,14 @@ def main():
     reader = Reader(conf.digit2zero)
     set_seed(opt, conf.seed)
 
-    trains = reader.read_txt(conf.train_file, conf.train_num)
-    devs = reader.read_txt(conf.dev_file, conf.dev_num)
-    tests = reader.read_txt(conf.test_file, conf.test_num)
+    if "ontonotes" in conf.train_file:
+        trains = reader.read_conll(conf.train_file, conf.train_num)
+        devs = reader.read_conll(conf.dev_file, conf.dev_num)
+        tests = reader.read_conll(conf.test_file, conf.test_num)
+    else:
+        trains = reader.read_txt(conf.train_file, conf.train_num)
+        devs = reader.read_txt(conf.dev_file, conf.dev_num)
+        tests = reader.read_txt(conf.test_file, conf.test_num)
 
     if conf.context_emb != ContextEmb.none:
         print('Loading the ELMo vectors for all datasets.')
