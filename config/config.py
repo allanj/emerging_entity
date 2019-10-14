@@ -216,14 +216,18 @@ class Config:
                         self.fined_label2idx[negative_label] = len(self.fined_label2idx)
 
         if self.use_fined_labels:
-            self.label2idx[self.B + self.new_type] = len(self.label2idx)
-            self.idx2labels.append(self.B + self.new_type)
-            self.label2idx[self.I + self.new_type] = len(self.label2idx)
-            self.idx2labels.append(self.I + self.new_type)
-            self.label2idx[self.E + self.new_type] = len(self.label2idx)
-            self.idx2labels.append(self.E + self.new_type)
-            self.label2idx[self.S + self.new_type] = len(self.label2idx)
-            self.idx2labels.append(self.S + self.new_type)
+            if self.B + self.new_type not in self.label2idx:
+                self.label2idx[self.B + self.new_type] = len(self.label2idx)
+                self.idx2labels.append(self.B + self.new_type)
+            if self.I + self.new_type not in self.label2idx:
+                self.label2idx[self.I + self.new_type] = len(self.label2idx)
+                self.idx2labels.append(self.I + self.new_type)
+            if self.E + self.new_type not in self.label2idx:
+                self.label2idx[self.E + self.new_type] = len(self.label2idx)
+                self.idx2labels.append(self.E + self.new_type)
+            if self.S+ self.new_type not in self.label2idx:
+                self.label2idx[self.S + self.new_type] = len(self.label2idx)
+                self.idx2labels.append(self.S + self.new_type)
 
         self.label2idx[self.START_TAG] = len(self.label2idx)
         self.idx2labels.append(self.START_TAG)
