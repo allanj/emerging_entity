@@ -13,6 +13,7 @@ from config.utils import load_elmo_vec
 import pickle
 import tarfile
 import shutil
+from collections import Counter
 
 def set_seed(opt, seed):
     random.seed(seed)
@@ -114,6 +115,7 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
 
         model.eval()
         dev_metrics = evaluate_model(config, model, dev_batches, "dev", dev_insts)
+        print()
         test_metrics = evaluate_model(config, model, test_batches, "test", test_insts)
         if dev_metrics[2] > best_dev[0]:
             print("saving the best model...")
@@ -146,44 +148,31 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
 
 def evaluate_model(config: Config, model: NNCRF, batch_insts_ids, name: str, insts: List[Instance]):
     ## evaluation
-    metrics = np.asarray([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=int)
+    p_dict, total_predict_dict, total_entity_dict = Counter(), Counter(), Counter()
     batch_id = 0
     batch_size = config.batch_size
     for batch in batch_insts_ids:
         one_batch_insts = insts[batch_id * batch_size:(batch_id + 1) * batch_size]
         batch_max_scores, batch_max_ids = model.decode(batch)
-        metrics += evaluate_batch_insts(one_batch_insts, batch_max_ids, batch[-1], batch[1], config.idx2labels, config.use_crf_layer)
+        batch_p , batch_predict, batch_total = evaluate_batch_insts(one_batch_insts, batch_max_ids, batch[-1], batch[1], config.idx2labels, config.use_crf_layer)
+        p_dict += batch_p
+        total_predict_dict += batch_predict
+        total_entity_dict += batch_total
         batch_id += 1
-    p, total_predict, total_entity = metrics[0], metrics[1], metrics[2]
-    precision = p * 1.0 / total_predict * 100 if total_predict != 0 else 0
-    recall = p * 1.0 / total_entity * 100 if total_entity != 0 else 0
+
+    for key in total_entity_dict:
+        precision = p_dict[key] * 1.0 / total_predict_dict[key] * 100 if total_predict_dict[key] != 0 else 0
+        recall = p_dict[key] * 1.0 / total_entity_dict[key] * 100 if total_entity_dict[key] != 0 else 0
+        fscore = 2.0 * precision * recall / (precision + recall) if precision != 0 or recall != 0 else 0
+        print("[%s] Prec.: %.2f, Rec.: %.2f, F1: %.2f" % (key, precision, recall, fscore))
+
+    total_p = sum(list(p_dict.values()))
+    total_predict = sum(list(total_predict_dict.values()))
+    total_entity = sum(list(total_entity_dict.values()))
+    precision = total_p * 1.0 / total_predict * 100 if total_predict != 0 else 0
+    recall = total_p * 1.0 / total_entity * 100 if total_entity != 0 else 0
     fscore = 2.0 * precision * recall / (precision + recall) if precision != 0 or recall != 0 else 0
-
-    p_per, total_predict_per, total_entity_per = metrics[3], metrics[4], metrics[5]
-    precision_per = p_per * 1.0 / total_predict_per * 100 if total_predict_per != 0 else 0
-    recall_per = p_per * 1.0 / total_entity_per * 100 if total_entity_per != 0 else 0
-    fscore_per = 2.0 * precision_per * recall_per / (precision_per + recall_per) if precision_per != 0 or recall_per != 0 else 0
-
-    p_loc, total_predict_loc, total_entity_loc = metrics[6], metrics[7], metrics[8]
-    precision_loc = p_loc * 1.0 / total_predict_loc * 100 if total_predict_loc != 0 else 0
-    recall_loc = p_loc * 1.0 / total_entity_loc * 100 if total_entity_loc != 0 else 0
-    fscore_loc = 2.0 * precision_loc * recall_loc / (precision_loc + recall_loc) if precision_loc != 0 or recall_loc != 0 else 0
-    
-    p_org, total_predict_org, total_entity_org = metrics[9], metrics[10], metrics[11]
-    precision_org = p_org * 1.0 / total_predict_org * 100 if total_predict_org != 0 else 0
-    recall_org = p_org * 1.0 / total_entity_org * 100 if total_entity_org != 0 else 0
-    fscore_org = 2.0 * precision_org * recall_org / (precision_org + recall_org) if precision_org != 0 or recall_org != 0 else 0
-
-    p_misc, total_predict_misc, total_entity_misc = metrics[12], metrics[13], metrics[14]
-    precision_misc = p_misc * 1.0 / total_predict_misc * 100 if total_predict_misc != 0 else 0
-    recall_misc = p_misc * 1.0 / total_entity_misc * 100 if total_entity_misc != 0 else 0
-    fscore_misc = 2.0 * precision_misc * recall_misc / (precision_misc + recall_misc) if precision_misc != 0 or recall_misc != 0 else 0
-
-    print("[%s set] Precision: %.2f, Recall: %.2f, F1: %.2f" % (name, precision, recall, fscore), flush=True)
-    print("[label per] Precision: %.2f, Recall: %.2f, F1: %.2f" % (precision_per, recall_per, fscore_per), flush=True)
-    print("[label loc] Precision: %.2f, Recall: %.2f, F1: %.2f" % (precision_loc, recall_loc, fscore_loc), flush=True)
-    print("[label org] Precision: %.2f, Recall: %.2f, F1: %.2f" % (precision_org, recall_org, fscore_org), flush=True)
-    print("[label misc] Precision: %.2f, Recall: %.2f, F1: %.2f" % (precision_misc, recall_misc, fscore_misc), flush=True)
+    print("[%s set Total] Prec.: %.2f, Rec.: %.2f, F1: %.2f" % (name, precision, recall, fscore), flush=True)
     return [precision, recall, fscore]
 
 
