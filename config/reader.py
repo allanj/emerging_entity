@@ -10,14 +10,13 @@ import re
 
 class Reader:
 
-    def __init__(self, digit2zero:bool=True, ignore_type: bool = False):
+    def __init__(self, digit2zero:bool=True):
         """
         Read the dataset into Instance
         :param digit2zero: convert the digits into 0, which is a common practice for LSTM-CRF.
         """
         self.digit2zero = digit2zero
         self.vocab = set()
-        self.ignore_type = ignore_type
 
     def read_conll(self, file: str, number: int = -1, is_train: bool = True) -> List[Instance]:
         print("Reading file: " + file)
@@ -44,9 +43,6 @@ class Reader:
                     word = re.sub('\d', '0', word) # replace digit with 0.
                 words.append(word)
                 self.vocab.add(word)
-                if self.ignore_type:
-                    if label != "O":
-                        label = label[:2] + "general"
                 labels.append(label)
                 if label.startswith("B-"):
                     num_entity +=1
@@ -73,9 +69,6 @@ class Reader:
                     word = re.sub('\d', '0', word) # replace digit with 0.
                 words.append(word)
                 self.vocab.add(word)
-                if self.ignore_type:
-                    if label != "O":
-                        label = label[:2] + "general"
                 labels.append(label)
         print("number of sentences: {}".format(len(insts)))
         return insts

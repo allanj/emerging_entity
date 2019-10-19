@@ -43,6 +43,7 @@ class Config:
         self.STOP_TAG = STOP
         self.UNK = "<UNK>"
         self.unk_id = -1
+        self.general = "general"
 
         # Model hyper parameters
         self.embedding_file = args.embedding_file
@@ -205,6 +206,8 @@ class Config:
             self.idx2fined_labels.append(self.PAD)
         for inst in insts:
             for label in inst.output:
+                if self.extraction_model and label != self.O:
+                    label = label[:2] + self.general
                 if label not in self.label2idx:
                     self.idx2labels.append(label)
                     self.label2idx[label] = len(self.label2idx)
@@ -298,4 +301,6 @@ class Config:
                 inst.char_ids.append(char_id)
             if inst.output:
                 for label in inst.output:
+                    if self.extraction_model and label != self.O:
+                        label = label[:2] + self.general
                     inst.output_ids.append(self.label2idx[label])
