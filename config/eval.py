@@ -73,16 +73,17 @@ def evaluate_batch_insts(batch_insts: List[Instance],
                 output_spans.add(Span(i, i, output[i][2:]))
                 batch_total_entity_dict[output[i][2:]] += 1
         predict_spans = set()
+        start = -1
         for i in range(len(prediction)):
             if prediction[i].startswith("B-"):
                 start = i
             if prediction[i].startswith("E-"):
                 end = i
                 predict_spans.add(Span(start, end, prediction[i][2:]))
-                batch_total_predict_dict[output[i][2:]] += 1
+                batch_total_predict_dict[prediction[i][2:]] += 1
             if prediction[i].startswith("S-"):
                 predict_spans.add(Span(i, i, prediction[i][2:]))
-                batch_total_predict_dict[output[i][2:]] += 1
+                batch_total_predict_dict[prediction[i][2:]] += 1
 
         correct_spans = predict_spans.intersection(output_spans)
         for span in correct_spans:
