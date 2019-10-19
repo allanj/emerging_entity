@@ -14,7 +14,7 @@ from termcolor import colored
 
 
 START = "<START>"
-STOP = "<STOP>"
+STOP = "<END>"
 PAD = "<PAD>"
 
 
@@ -65,6 +65,7 @@ class Config:
         self.use_fined_labels = args.use_fined_labels
         self.add_label_constraint = args.add_label_constraint
         self.new_type = args.new_type
+        self.typing_model = args.typing_model
 
         # Data specification
         self.dataset = args.dataset

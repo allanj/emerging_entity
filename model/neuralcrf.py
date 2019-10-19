@@ -11,7 +11,7 @@ from model.bilstm_encoder import BiLSTMEncoder
 from model.linear_crf_inferencer import LinearCRF
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from config import ContextEmb
-from typing import Tuple
+from typing import Tuple, Optional
 from overrides import overrides
 
 
@@ -32,6 +32,7 @@ class NNCRF(nn.Module):
                     batch_context_emb: torch.Tensor,
                     chars: torch.Tensor,
                     char_seq_lens: torch.Tensor,
+                    typing_mask: Optional[torch.Tensor],
                     tags: torch.Tensor) -> torch.Tensor:
         """
         Calculate the negative loglikelihood.
@@ -50,22 +51,24 @@ class NNCRF(nn.Module):
         maskTemp = torch.arange(1, max_sent_len + 1, dtype=torch.long).view(1, max_sent_len).expand(batch_size, max_sent_len).to(self.device)
         mask = torch.le(maskTemp, word_seq_lens.view(batch_size, 1).expand(batch_size, max_sent_len)).to(self.device)
         if self.inferencer is not None:
-            unlabed_score, labeled_score =  self.inferencer(lstm_scores, word_seq_lens, tags, mask)
+            unlabed_score, labeled_score =  self.inferencer(lstm_scores, word_seq_lens, typing_mask, tags, mask)
             loss = unlabed_score - labeled_score
         else:
             loss = self.compute_nll_loss(lstm_scores, tags, mask, word_seq_lens)
         return loss
 
-    def decode(self, batchInput: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def decode(self, batchInput: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Decode the batch input
         :param batchInput:
         :return:
         """
-        wordSeqTensor, wordSeqLengths, batch_context_emb, charSeqTensor, charSeqLengths, tagSeqTensor = batchInput
+        wordSeqTensor, wordSeqLengths, batch_context_emb, charSeqTensor, charSeqLengths, typing_mask, tagSeqTensor = batchInput
+        if typing_mask is not None:
+            typing_mask = typing_mask.log() ##because the original mask is only 0,1
         lstm_scores = self.encoder(wordSeqTensor, wordSeqLengths, batch_context_emb,charSeqTensor,charSeqLengths)
         if self.inferencer is not None:
-            bestScores, decodeIdx = self.inferencer.decode(lstm_scores, wordSeqLengths)
+            bestScores, decodeIdx = self.inferencer.decode(lstm_scores, wordSeqLengths, typing_mask=typing_mask)
         else:
             bestScores, decodeIdx = torch.max(lstm_scores, dim=2)
         return bestScores, decodeIdx

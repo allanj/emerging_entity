@@ -1,7 +1,7 @@
 import argparse
 import random
 import numpy as np
-from config import Reader, Config, ContextEmb, lr_decay, simple_batching, evaluate_batch_insts, get_optimizer, write_results, batching_list_instances
+from config import Reader, Config, ContextEmb, lr_decay, simple_batching, evaluate_batch_insts, get_optimizer, write_results, batching_list_instances, build_type_id_mapping
 import time
 from model.neuralcrf import NNCRF
 import torch
@@ -60,6 +60,10 @@ def parse_arguments(parser):
     parser.add_argument('--add_label_constraint', type=int, default=0, choices=[0, 1], help="Add BIES constraints")
     parser.add_argument('--new_type', type=str, default="MISC", help="The new entity type for zero-shot entity recognition.")
 
+    """
+    Typing model is given the BIOES segmented sequence, predict the labels direclty.
+    """
+    parser.add_argument('--typing_model', type=int, default=1, choices=[0,1], help="If use typing model or not, in this case, the input should be regarded as already segmented")
 
     args = parser.parse_args()
     for k in args.__dict__:
@@ -206,6 +210,13 @@ def main():
     conf.build_emb_table()
 
     conf.map_insts_ids(trains + devs + tests)
+
+    if conf.typing_model:
+        """
+        Building mapping, for example: {B-per: [B-per, B-org, B-misc], O: O, I-org: [I-per, I-org]}
+        Will be used when creating the mask
+        """
+        conf.typing_map = build_type_id_mapping(conf)
 
     print("num chars: " + str(conf.num_char))
     # print(str(config.char2idx))

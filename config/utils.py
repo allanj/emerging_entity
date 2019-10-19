@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from common import Instance
 import pickle
 import torch.optim as optim
@@ -11,6 +11,7 @@ import torch.nn as nn
 
 from config import PAD, ContextEmb, Config
 from termcolor import colored
+from collections import defaultdict
 
 def log_sum_exp_pytorch(vec: torch.Tensor) -> torch.Tensor:
     """
@@ -34,7 +35,25 @@ def batching_list_instances(config: Config, insts: List[Instance]):
 
     return batched_data
 
-def simple_batching(config, insts: List[Instance]) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor,torch.Tensor,torch.Tensor,torch.Tensor]:
+def build_type_id_mapping(config: Config) -> Dict[int, List[int]]:
+    """
+    Build the mapping for the typing model. For example:
+        ## B- -> B-PER, B-ORG..
+        ## I- -> I-PER
+    :param config:
+    :return: label id to a set of feasible label id.
+    """
+    # type_id_mapping = defaultdict(list)
+    # for label in config.label2idx:
+    #     type_id_mapping[config.label2idx[label]] = [config.label2idx[sub_label] for sub_label in config.label2idx if label[:2] == sub_label[:2]]
+    ## The above three lines work, but we just want to make it simple as one line.
+    type_id_mapping = {config.label2idx[label]: [config.label2idx[sub_label] for sub_label in config.label2idx if
+                                                 label[:2] == sub_label[:2]] for label in config.label2idx}
+    return type_id_mapping
+
+
+
+def simple_batching(config, insts: List[Instance]) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor,torch.Tensor,torch.Tensor,torch.Tensor,torch.Tensor]:
 
     """
     batching these instances together and return tensors. The seq_tensors for word and char contain their word id and char id.
@@ -84,7 +103,24 @@ def simple_batching(config, insts: List[Instance]) -> Tuple[torch.Tensor, torch.
     word_seq_len = word_seq_len.to(config.device)
     char_seq_len = char_seq_len.to(config.device)
 
-    return word_seq_tensor, word_seq_len, context_emb_tensor, char_seq_tensor, char_seq_len, label_seq_tensor
+    ## for purpose of typing model below, obtain the typing mask.
+    typing_mask = None
+    if config.typing_model:
+        """
+        The mask is to mask out values that are not valid in that position 
+        during training and decoding for unlabeled network.
+        For example, if we know a position is "B-something", then it must be
+        "B-per", "B-loc" or "B-org", etc.
+        """
+        typing_mask = torch.zeros((batch_size, max_seq_len, config.label_size))
+        for idx in range(batch_size):
+            for pos in range(word_seq_len[idx]):
+                valid_label_idxs = config.typing_map[batch_data[idx].output_ids[pos]]
+                typing_mask[idx, pos, valid_label_idxs] = 1
+            typing_mask[idx, word_seq_len[idx]:, :] = 1e-10 ## if we dont't do this, the objective will have NaN issue.
+        typing_mask = typing_mask.to(config.device)
+
+    return word_seq_tensor, word_seq_len, context_emb_tensor, char_seq_tensor, char_seq_len, typing_mask, label_seq_tensor
 
 
 def lr_decay(config, optimizer: optim.Optimizer, epoch: int) -> optim.Optimizer:

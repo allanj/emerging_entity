@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch
 
 from config import log_sum_exp_pytorch, START, STOP, PAD
-from typing import Tuple
+from typing import Tuple, Optional
 from overrides import overrides
 
 class LinearCRF(nn.Module):
@@ -58,7 +58,7 @@ class LinearCRF(nn.Module):
                         transition[l1, l2] = -10000.0
 
     @overrides
-    def forward(self, lstm_scores, word_seq_lens, tags, mask):
+    def forward(self, lstm_scores, word_seq_lens, typing_mask, tags, mask):
         """
         Calculate the negative log-likelihood
         :param lstm_scores:
@@ -68,15 +68,18 @@ class LinearCRF(nn.Module):
         :return:
         """
         all_scores=  self.calculate_all_scores(lstm_scores= lstm_scores)
-        unlabed_score = self.forward_unlabeled(all_scores, word_seq_lens)
+        if typing_mask is not None:
+            typing_mask = typing_mask.log()
+        unlabed_score = self.forward_unlabeled(all_scores, word_seq_lens, typing_mask=typing_mask)
         labeled_score = self.forward_labeled(all_scores, word_seq_lens, tags, mask)
         return unlabed_score, labeled_score
 
-    def forward_unlabeled(self, all_scores: torch.Tensor, word_seq_lens: torch.Tensor) -> torch.Tensor:
+    def forward_unlabeled(self, all_scores: torch.Tensor, word_seq_lens: torch.Tensor, typing_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Calculate the scores with the forward algorithm. Basically calculating the normalization term
         :param all_scores: (batch_size x max_seq_len x num_labels x num_labels) from (lstm scores + transition scores).
         :param word_seq_lens: (batch_size)
+        :param typing_mask: (batch_size, max_seq_len x num_labels)
         :return: (batch_size) for the normalization scores
         """
         batch_size = all_scores.size(0)
@@ -85,10 +88,15 @@ class LinearCRF(nn.Module):
 
         alpha[:, 0, :] = all_scores[:, 0,  self.start_idx, :] ## the first position of all labels = (the transition from start - > all labels) + current emission.
 
+        if typing_mask is not None:
+            alpha[:, 0, :] += typing_mask[: , 0, :]
+
         for word_idx in range(1, seq_len):
             ## batch_size, self.label_size, self.label_size
             before_log_sum_exp = alpha[:, word_idx-1, :].view(batch_size, self.label_size, 1).expand(batch_size, self.label_size, self.label_size) + all_scores[:, word_idx, :, :]
             alpha[:, word_idx, :] = log_sum_exp_pytorch(before_log_sum_exp)
+            if typing_mask is not None:
+                alpha[:, word_idx, :] += typing_mask[:, word_idx, :]
 
         ### batch_size x label_size
         last_alpha = torch.gather(alpha, 1, word_seq_lens.view(batch_size, 1, 1).expand(batch_size, 1, self.label_size)-1).view(batch_size, self.label_size)
@@ -135,17 +143,17 @@ class LinearCRF(nn.Module):
                  lstm_scores.view(batch_size, seq_len, 1, self.label_size).expand(batch_size, seq_len, self.label_size, self.label_size)
         return scores
 
-    def decode(self, features, wordSeqLengths) -> Tuple[torch.Tensor, torch.Tensor]:
+    def decode(self, features, wordSeqLengths, typing_mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Decode the batch input
         :param batchInput:
         :return:
         """
         all_scores = self.calculate_all_scores(features)
-        bestScores, decodeIdx = self.viterbi_decode(all_scores, wordSeqLengths)
+        bestScores, decodeIdx = self.viterbi_decode(all_scores, wordSeqLengths, typing_mask)
         return bestScores, decodeIdx
 
-    def viterbi_decode(self, all_scores: torch.Tensor, word_seq_lens: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def viterbi_decode(self, all_scores: torch.Tensor, word_seq_lens: torch.Tensor, typing_mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Use viterbi to decode the instances given the scores and transition parameters
         :param all_scores: (batch_size x max_seq_len x num_labels)
@@ -165,6 +173,8 @@ class LinearCRF(nn.Module):
         scores = all_scores
         # scoresRecord[:, 0, :] = self.getInitAlphaWithBatchSize(batchSize).view(batchSize, self.label_size)
         scoresRecord[:, 0, :] = scores[:, 0, self.start_idx, :]  ## represent the best current score from the start, is the best
+        if typing_mask is not None:
+            scoresRecord[:, 0, :] += typing_mask[:, 0, :]
         idxRecord[:,  0, :] = startIds
         for wordIdx in range(1, sentLength):
             ### scoresIdx: batch x from_label x to_label at current index.
@@ -172,6 +182,9 @@ class LinearCRF(nn.Module):
                                                                                   self.label_size) + scores[:, wordIdx, :, :]
             idxRecord[:, wordIdx, :] = torch.argmax(scoresIdx, 1)  ## the best previous label idx to crrent labels
             scoresRecord[:, wordIdx, :] = torch.gather(scoresIdx, 1, idxRecord[:, wordIdx, :].view(batchSize, 1, self.label_size)).view(batchSize, self.label_size)
+
+            if typing_mask is not None:
+                scoresRecord[:, wordIdx, :] += typing_mask[:, wordIdx, :]
 
         lastScores = torch.gather(scoresRecord, 1, word_seq_lens.view(batchSize, 1, 1).expand(batchSize, 1, self.label_size) - 1).view(batchSize, self.label_size)  ##select position
         lastScores += self.transition[:, self.end_idx].view(1, self.label_size).expand(batchSize, self.label_size)
