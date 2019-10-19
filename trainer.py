@@ -60,10 +60,16 @@ def parse_arguments(parser):
     parser.add_argument('--add_label_constraint', type=int, default=0, choices=[0, 1], help="Add BIES constraints")
     parser.add_argument('--new_type', type=str, default="MISC", help="The new entity type for zero-shot entity recognition.")
 
+
+    """
+    Extraction model whether we ignore the type information to train the model.
+    """
+    parser.add_argument('--extraction_model', type=int, default=0, choices=[0, 1], help="entity extraction model")
     """
     Typing model is given the BIOES segmented sequence, predict the labels direclty.
+    NOTE: `extraction_model` and `typing_model` should not be both `1` at the same time.
     """
-    parser.add_argument('--typing_model', type=int, default=1, choices=[0,1], help="If use typing model or not, in this case, the input should be regarded as already segmented")
+    parser.add_argument('--typing_model', type=int, default=0, choices=[0,1], help="If use typing model or not, in this case, the input should be regarded as already segmented")
 
     args = parser.parse_args()
     for k in args.__dict__:
@@ -185,7 +191,7 @@ def main():
     opt = parse_arguments(parser)
     conf = Config(opt)
 
-    reader = Reader(conf.digit2zero)
+    reader = Reader(conf.digit2zero, conf.extraction_model)
     set_seed(opt, conf.seed)
 
     if "ontonotes" in conf.train_file:
