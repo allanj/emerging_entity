@@ -61,7 +61,7 @@ class NERPredictor:
                 cuda_device = int(cuda_device.split(":")[1])
             self.elmo = load_elmo(cuda_device)
 
-    def predict_insts(self, batch_insts_ids: Tuple) -> List[List[str]]:
+    def predict_insts_ids(self, batch_insts_ids: Tuple) -> List[List[str]]:
         batch_max_scores, batch_max_ids = self.model.decode(batch_insts_ids)
         predictions = []
         for idx in range(len(batch_max_ids)):
@@ -83,10 +83,25 @@ class NERPredictor:
             insts.append(Instance(Sentence(words)))
         return insts
 
-    def create_batch_data(self, insts: List[Instance]):
+    def create_batch_data(self, insts: List[Instance]) -> Tuple:
         return simple_batching(self.conf, insts)
 
-    def predict(self, sentences: Union[str, List[str]]):
+
+    def predict_insts(self, insts: List[Instance]) -> List[List[str]]:
+        """
+        Given the instances, map inst input to ids and predict the results.
+        :param insts:
+        :return:
+        """
+        self.conf.map_insts_ids(insts)
+        if self.conf.context_emb != ContextEmb.none:
+            read_parse_write(self.elmo, insts)
+        test_batches = self.create_batch_data(insts)
+        predictions = self.predict_insts_ids(test_batches)
+        return predictions
+        
+
+    def predict(self, sentences: Union[str, List[str]]) -> Union[List[str], List[List[str]]]:
 
         sents = [sentences] if isinstance(sentences, str) else sentences
         insts = self.sents_to_insts(sents)
@@ -94,7 +109,7 @@ class NERPredictor:
         if self.conf.context_emb != ContextEmb.none:
             read_parse_write(self.elmo, insts)
         test_batches = self.create_batch_data(insts)
-        predictions = self.predict_insts(test_batches)
+        predictions = self.predict_insts_ids(test_batches)
         if len(predictions) == 1:
             return predictions[0]
         else:

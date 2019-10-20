@@ -2,6 +2,7 @@ import argparse
 import random
 import numpy as np
 from config import Reader, Config, ContextEmb, lr_decay, simple_batching, evaluate_batch_insts, get_optimizer, write_results, batching_list_instances, build_type_id_mapping
+from config import get_metric
 import time
 from model.neuralcrf import NNCRF
 import torch
@@ -42,13 +43,13 @@ def parse_arguments(parser):
     parser.add_argument('--l2', type=float, default=1e-8)
     parser.add_argument('--lr_decay', type=float, default=0)
     parser.add_argument('--batch_size', type=int, default=10, help="default batch size is 10 (works well)")
-    parser.add_argument('--num_epochs', type=int, default=100, help="Usually we set to 10.")
-    parser.add_argument('--train_num', type=int, default=-1, help="-1 means all the data")
-    parser.add_argument('--dev_num', type=int, default=-1, help="-1 means all the data")
-    parser.add_argument('--test_num', type=int, default=-1, help="-1 means all the data")
+    parser.add_argument('--num_epochs', type=int, default=40, help="Usually we set to 10.")
+    parser.add_argument('--train_num', type=int, default=100, help="-1 means all the data")
+    parser.add_argument('--dev_num', type=int, default=100, help="-1 means all the data")
+    parser.add_argument('--test_num', type=int, default=100, help="-1 means all the data")
 
     ##model hyperparameter
-    parser.add_argument('--model_folder', type=str, default="english_model", help="The name to save the model files")
+    parser.add_argument('--model_folder', type=str, default="typing", help="The name to save the model files")
     parser.add_argument('--hidden_dim', type=int, default=200, help="hidden size of the LSTM")
     parser.add_argument('--use_crf_layer', type=int, default=1, help="1 is for using crf layer, 0 for not using CRF layer", choices=[0,1])
     parser.add_argument('--dropout', type=float, default=0.5, help="dropout for embedding")
@@ -94,12 +95,12 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
 
     model_folder = config.model_folder
     res_folder = "results"
-    if os.path.exists(model_folder):
-        raise FileExistsError(f"The folder {model_folder} exists. Please either delete it or create a new one "
-                              f"to avoid override.")
+    # if os.path.exists(model_folder):
+    #     raise FileExistsError(f"The folder {model_folder} exists. Please either delete it or create a new one "
+    #                           f"to avoid override.")
     model_name = model_folder + "/lstm_crf.m".format()
     config_name = model_folder + "/config.conf"
-    res_name = res_folder + "/lstm_crf.results".format()
+    res_name = f"{res_folder}/{model_folder}.results"
     print("[Info] The model will be saved to: %s.tar.gz" % (model_folder))
     if not os.path.exists(model_folder):
         os.makedirs(model_folder)
@@ -170,18 +171,15 @@ def evaluate_model(config: Config, model: NNCRF, batch_insts_ids, name: str, ins
         total_entity_dict += batch_total
         batch_id += 1
 
+
     for key in total_entity_dict:
-        precision = p_dict[key] * 1.0 / total_predict_dict[key] * 100 if total_predict_dict[key] != 0 else 0
-        recall = p_dict[key] * 1.0 / total_entity_dict[key] * 100 if total_entity_dict[key] != 0 else 0
-        fscore = 2.0 * precision * recall / (precision + recall) if precision != 0 or recall != 0 else 0
+        precision, recall, fscore = get_metric(p_dict[key], total_entity_dict[key], total_predict_dict[key])
         print("[%s] Prec.: %.2f, Rec.: %.2f, F1: %.2f" % (key, precision, recall, fscore))
 
     total_p = sum(list(p_dict.values()))
     total_predict = sum(list(total_predict_dict.values()))
     total_entity = sum(list(total_entity_dict.values()))
-    precision = total_p * 1.0 / total_predict * 100 if total_predict != 0 else 0
-    recall = total_p * 1.0 / total_entity * 100 if total_entity != 0 else 0
-    fscore = 2.0 * precision * recall / (precision + recall) if precision != 0 or recall != 0 else 0
+    precision, recall, fscore = get_metric(total_p, total_entity, total_predict)
     print("[%s set Total] Prec.: %.2f, Rec.: %.2f, F1: %.2f" % (name, precision, recall, fscore), flush=True)
     return [precision, recall, fscore]
 
@@ -191,7 +189,7 @@ def main():
     opt = parse_arguments(parser)
     conf = Config(opt)
 
-    reader = Reader(conf.digit2zero, conf.extraction_model)
+    reader = Reader(conf.digit2zero)
     set_seed(opt, conf.seed)
 
     if "ontonotes" in conf.train_file:
