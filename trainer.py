@@ -43,13 +43,13 @@ def parse_arguments(parser):
     parser.add_argument('--l2', type=float, default=1e-8)
     parser.add_argument('--lr_decay', type=float, default=0)
     parser.add_argument('--batch_size', type=int, default=10, help="default batch size is 10 (works well)")
-    parser.add_argument('--num_epochs', type=int, default=40, help="Usually we set to 10.")
-    parser.add_argument('--train_num', type=int, default=100, help="-1 means all the data")
-    parser.add_argument('--dev_num', type=int, default=100, help="-1 means all the data")
-    parser.add_argument('--test_num', type=int, default=100, help="-1 means all the data")
+    parser.add_argument('--num_epochs', type=int, default=100, help="Usually we set to 10.")
+    parser.add_argument('--train_num', type=int, default=-1, help="-1 means all the data")
+    parser.add_argument('--dev_num', type=int, default=-1, help="-1 means all the data")
+    parser.add_argument('--test_num', type=int, default=-1, help="-1 means all the data")
 
     ##model hyperparameter
-    parser.add_argument('--model_folder', type=str, default="typing", help="The name to save the model files")
+    parser.add_argument('--model_folder', type=str, default="english", help="The name to save the model files")
     parser.add_argument('--hidden_dim', type=int, default=200, help="hidden size of the LSTM")
     parser.add_argument('--use_crf_layer', type=int, default=1, help="1 is for using crf layer, 0 for not using CRF layer", choices=[0,1])
     parser.add_argument('--dropout', type=float, default=0.5, help="dropout for embedding")
@@ -95,9 +95,9 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
 
     model_folder = config.model_folder
     res_folder = "results"
-    # if os.path.exists(model_folder):
-    #     raise FileExistsError(f"The folder {model_folder} exists. Please either delete it or create a new one "
-    #                           f"to avoid override.")
+    if os.path.exists(model_folder):
+        raise FileExistsError(f"The folder {model_folder} exists. Please either delete it or create a new one "
+                              f"to avoid override.")
     model_name = model_folder + "/lstm_crf.m".format()
     config_name = model_folder + "/config.conf"
     res_name = f"{res_folder}/{model_folder}.results"
