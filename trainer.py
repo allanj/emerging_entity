@@ -103,6 +103,7 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
     config_name = model_folder + "/config.conf"
     res_name = f"{res_folder}/{model_folder}_test.results"
     dev_name = f"{res_folder}/{model_folder}_dev.results"
+    train_name = f"{res_folder}/{model_folder}_train.results"
     print("[Info] The model will be saved to: %s.tar.gz" % (model_folder))
     if not os.path.exists(model_folder):
         os.makedirs(model_folder)

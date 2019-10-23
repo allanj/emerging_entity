@@ -71,7 +71,8 @@ class Config:
 
         self.dataset = args.dataset
         self.dev_extraction = "results/extraction_dev.results"
-        self.test_extraction = "results/extraction_dev.results"
+        self.test_extraction = "results/extraction_test.results"
+        self.train_extraction = "results/extraction_train.results"
         self.train_file = "data/" + self.dataset + "/train.txt"
         self.dev_file = "data/" + self.dataset + "/dev.txt"
         self.test_file = "data/" + self.dataset + "/test.txt"

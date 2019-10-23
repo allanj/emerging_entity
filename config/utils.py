@@ -105,7 +105,7 @@ def simple_batching(config, insts: List[Instance]) -> Tuple[torch.Tensor, torch.
 
     ## for purpose of typing model below, obtain the typing mask.
     typing_mask = None
-    if config.typing_model:
+    if config.typing_model and batch_data[0].output_extraction != None:
         """
         The mask is to mask out values that are not valid in that position 
         during training and decoding for unlabeled network.
@@ -117,10 +117,18 @@ def simple_batching(config, insts: List[Instance]) -> Tuple[torch.Tensor, torch.
             for pos in range(word_seq_len[idx]):
                 one_valid_label = ""
                 for item_label in config.label2idx.keys():
-                    if item_label == batch_data[idx].output_extraction[pos][:2]:
+                    if item_label[:2] == batch_data[idx].output_extraction[pos][:2]:
                         one_valid_label = item_label
                         break
                 valid_label_idxs = config.typing_map[config.label2idx[one_valid_label]]
+                typing_mask[idx, pos, valid_label_idxs] = 1
+            typing_mask[idx, word_seq_len[idx]:, :] = 1e-10 ## if we dont't do this, the objective will have NaN issue.
+        typing_mask = typing_mask.to(config.device)
+    elif config.typing_model:
+        typing_mask = torch.zeros((batch_size, max_seq_len, config.label_size))
+        for idx in range(batch_size):
+            for pos in range(word_seq_len[idx]):
+                valid_label_idxs = config.typing_map[batch_data[idx].output_ids[pos]]
                 typing_mask[idx, pos, valid_label_idxs] = 1
             typing_mask[idx, word_seq_len[idx]:, :] = 1e-10 ## if we dont't do this, the objective will have NaN issue.
         typing_mask = typing_mask.to(config.device)

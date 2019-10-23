@@ -78,13 +78,14 @@ class Reader:
         print("Reading file: " + extraction_file)
         f_extract = open(extraction_file, 'r', encoding='utf-8')
         extract_lines = f_extract.readlines()
-        i = 0
+        i = -1
         insts = []
         with open(file, 'r', encoding='utf-8') as f:
             words = []
             labels = []
             boundaries = []
             for line in tqdm(f.readlines()):
+                i += 1
                 extract_line = extract_lines[i]
                 extract_line = extract_line.rstrip()
                 line = line.rstrip()
@@ -97,14 +98,14 @@ class Reader:
                         break
                     continue
                 word, label = line.split()
-                _, _1, _2, predicted_label = extract_line.split()
+                _, word_, gold_, predicted_label = extract_line.split()
                 if self.digit2zero:
                     word = re.sub('\d', '0', word) # replace digit with 0.
                 words.append(word)
                 self.vocab.add(word)
                 labels.append(label)
                 boundaries.append(predicted_label)
-                i += 1
+
         print("number of sentences: {}".format(len(insts)))
         return insts
 
