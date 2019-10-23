@@ -69,8 +69,9 @@ class Config:
         self.typing_model = args.typing_model
         self.extraction_model = args.extraction_model
 
-        # Data specification
         self.dataset = args.dataset
+        self.dev_extraction = "results/extraction_dev.results"
+        self.test_extraction = "results/extraction_dev.results"
         self.train_file = "data/" + self.dataset + "/train.txt"
         self.dev_file = "data/" + self.dataset + "/dev.txt"
         self.test_file = "data/" + self.dataset + "/test.txt"

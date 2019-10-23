@@ -115,7 +115,12 @@ def simple_batching(config, insts: List[Instance]) -> Tuple[torch.Tensor, torch.
         typing_mask = torch.zeros((batch_size, max_seq_len, config.label_size))
         for idx in range(batch_size):
             for pos in range(word_seq_len[idx]):
-                valid_label_idxs = config.typing_map[batch_data[idx].output_ids[pos]]
+                one_valid_label = ""
+                for item_label in config.label2idx.keys():
+                    if item_label == batch_data[idx].output_extraction[pos][:2]:
+                        one_valid_label = item_label
+                        break
+                valid_label_idxs = config.typing_map[config.label2idx[one_valid_label]]
                 typing_mask[idx, pos, valid_label_idxs] = 1
             typing_mask[idx, word_seq_len[idx]:, :] = 1e-10 ## if we dont't do this, the objective will have NaN issue.
         typing_mask = typing_mask.to(config.device)

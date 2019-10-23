@@ -9,7 +9,7 @@ class Instance:
     This class is the basic Instance for a datasample
     """
 
-    def __init__(self, input: Sentence, output: List[str] = None) -> None:
+    def __init__(self, input: Sentence, output: List[str] = None, output_extraction: List[str] = None) -> None:
         """
         Constructor for the instance.
         :param input: sentence containing the words
@@ -17,6 +17,7 @@ class Instance:
         """
         self.input = input
         self.output = output
+        self.output_extraction = output_extraction
         self.elmo_vec = None #used for loading the ELMo vector.
         self.word_ids = None
         self.char_ids = None

@@ -11,6 +11,7 @@ from common import Instance
 from termcolor import colored
 import os
 from config.utils import load_elmo_vec
+from typing_extracted_results import read_extraction_results
 import pickle
 import tarfile
 import shutil
@@ -100,7 +101,8 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
                               f"to avoid override.")
     model_name = model_folder + "/lstm_crf.m".format()
     config_name = model_folder + "/config.conf"
-    res_name = f"{res_folder}/{model_folder}.results"
+    res_name = f"{res_folder}/{model_folder}_test.results"
+    dev_name = f"{res_folder}/{model_folder}_dev.results"
     print("[Info] The model will be saved to: %s.tar.gz" % (model_folder))
     if not os.path.exists(model_folder):
         os.makedirs(model_folder)
@@ -140,6 +142,7 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
             pickle.dump(config, f)
             f.close()
             write_results(res_name, test_insts)
+            write_results(dev_name, dev_insts)
         model.zero_grad()
 
     print("Archiving the best Model...")
@@ -155,6 +158,7 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
     model.eval()
     evaluate_model(config, model, test_batches, "test", test_insts)
     write_results(res_name, test_insts)
+    write_results(dev_name, dev_insts)
 
 
 def evaluate_model(config: Config, model: NNCRF, batch_insts_ids, name: str, insts: List[Instance]):
@@ -198,8 +202,12 @@ def main():
         tests = reader.read_conll(conf.test_file, conf.test_num)
     else:
         trains = reader.read_txt(conf.train_file, conf.train_num)
-        devs = reader.read_txt(conf.dev_file, conf.dev_num)
-        tests = reader.read_txt(conf.test_file, conf.test_num)
+        if conf.typing_model:
+            devs = reader.read_txt_with_extraction(conf.dev_file, conf.dev_extraction, conf.dev_num)
+            tests = reader.read_txt_with_extraction(conf.test_file, conf.test_extraction, conf.test_num)
+        else:
+            devs = reader.read_txt(conf.dev_file, conf.dev_num)
+            tests = reader.read_txt(conf.test_file, conf.test_num)
 
     if conf.context_emb != ContextEmb.none:
         print('Loading the ELMo vectors for all datasets.')
