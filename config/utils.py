@@ -47,8 +47,12 @@ def build_type_id_mapping(config: Config) -> Dict[int, List[int]]:
     # for label in config.label2idx:
     #     type_id_mapping[config.label2idx[label]] = [config.label2idx[sub_label] for sub_label in config.label2idx if label[:2] == sub_label[:2]]
     ## The above three lines work, but we just want to make it simple as one line.
-    type_id_mapping = {config.label2idx[label]: [config.label2idx[sub_label] for sub_label in config.label2idx if
+    if config.hard_model == "hard":
+        type_id_mapping = {config.label2idx[label]: [config.label2idx[sub_label] for sub_label in config.label2idx if
                                                  label[:2] == sub_label[:2]] for label in config.label2idx}
+    elif config.hard_model == "soft":
+        type_id_mapping = {config.label2idx[label]: [config.label2idx[sub_label] for sub_label in config.label2idx if
+                                                 ('-' in label and '-' in sub_label) or (label[:2] == sub_label[:2])] for label in config.label2idx}
     return type_id_mapping
 
 

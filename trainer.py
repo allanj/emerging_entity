@@ -72,6 +72,7 @@ def parse_arguments(parser):
     NOTE: `extraction_model` and `typing_model` should not be both `1` at the same time.
     """
     parser.add_argument('--typing_model', type=int, default=0, choices=[0,1], help="If use typing model or not, in this case, the input should be regarded as already segmented")
+    parser.add_argument('--model_strict', type=str, default="soft", choices=["soft", "hard"], help="If this model is hard, it will follow the extraction result strictly")
 
     args = parser.parse_args()
     for k in args.__dict__:
