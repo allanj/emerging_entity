@@ -219,14 +219,14 @@ class Config:
                 if self.use_fined_labels and label not in self.fined_label2idx:
                     self.idx2fined_labels.append(label)
                     self.fined_label2idx[label] = len(self.fined_label2idx)
-                    if label != "O":
+                    if label != "O": ##B-per, B-ORG
                         negative_label = label + "_NOT"
                         self.idx2fined_labels.append(negative_label)
                         self.fined_label2idx[negative_label] = len(self.fined_label2idx)
                         if self.use_end2end:
                             prefix_label = label[:2]
-                            self.idx2fined_labels.append(prefix_label)
                             if prefix_label not in self.fined_label2idx:
+                                self.idx2fined_labels.append(prefix_label)
                                 self.fined_label2idx[prefix_label] = len(self.fined_label2idx)
 
         if self.use_fined_labels:
