@@ -61,7 +61,11 @@ def parse_arguments(parser):
     parser.add_argument('--use_fined_labels', type=int, default=0, choices=[0, 1], help="Use finer labels before going to the CRF layer")
     parser.add_argument('--add_label_constraint', type=int, default=0, choices=[0, 1], help="Add BIES constraints")
     parser.add_argument('--new_type', type=str, default="MISC", help="The new entity type for zero-shot entity recognition.")
-
+    parser.add_argument('--use_end2end', type=int, default=0, choices=[0, 1], help="Use end2end model which contains prefix label and if you use it, use_fined_labels should be 1")
+    
+    """
+    NOTE: if you use end2end, `extraction_model` and `typing_model` should be 0 both.
+    """
 
     """
     Extraction model whether we ignore the type information to train the model.

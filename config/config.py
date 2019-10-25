@@ -65,6 +65,7 @@ class Config:
 
         self.use_fined_labels = args.use_fined_labels
         self.add_label_constraint = args.add_label_constraint
+        self.use_end2end = args.use_end2end
         self.new_type = args.new_type
         self.typing_model = args.typing_model
         self.hard_model = args.model_strict
@@ -222,6 +223,11 @@ class Config:
                         negative_label = label + "_NOT"
                         self.idx2fined_labels.append(negative_label)
                         self.fined_label2idx[negative_label] = len(self.fined_label2idx)
+                        if self.use_end2end:
+                            prefix_label = label[:2]
+                            self.idx2fined_labels.append(prefix_label)
+                            if prefix_label not in self.fined_label2idx:
+                                self.fined_label2idx[prefix_label] = len(self.fined_label2idx)
 
         if self.use_fined_labels:
             if self.B + self.new_type not in self.label2idx:

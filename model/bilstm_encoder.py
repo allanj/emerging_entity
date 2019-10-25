@@ -24,6 +24,7 @@ class BiLSTMEncoder(nn.Module):
         self.labels = config.idx2labels
 
         self.use_fined_labels = config.use_fined_labels
+        self.use_end2end = config.use_end2end
         self.fined_label2idx = config.fined_label2idx
         self.fined_labels = config.idx2fined_labels
 
@@ -68,17 +69,20 @@ class BiLSTMEncoder(nn.Module):
             if fined_label in self.label2idx:
                 mapping_weight[self.label2idx[fined_label], self.fined_label2idx[fined_label]] = 1.0
             else:
-
                 for coarse_idx in self.find_other_coarse_idx(fined_label=fined_label):
                     mapping_weight[coarse_idx, self.fined_label2idx[fined_label]] = 1.0
         return mapping_weight
 
     def find_other_coarse_idx(self, fined_label:str):
         ## fined label must be "_NOT"
-        assert  fined_label.endswith("_NOT")
+        assert  fined_label.endswith("_NOT") or (len(fined_label) == 2 and '-' in fined_label)
         for coarse_label in self.label2idx:
-            if coarse_label[:2] == fined_label[:2] and fined_label[:-4] != coarse_label:
-                yield self.label2idx[coarse_label]
+            if fined_label.endswith("_NOT"):
+                if coarse_label[:2] == fined_label[:2] and fined_label[:-4] != coarse_label:
+                    yield self.label2idx[coarse_label]
+            elif self.use_end2end:
+                if coarse_label[:2] == fined_label:
+                    yield self.label2idx[coarse_label]
 
     @overrides
     def forward(self, word_seq_tensor: torch.Tensor,
