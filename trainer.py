@@ -182,16 +182,17 @@ def evaluate_model(config: Config, model: NNCRF, batch_insts_ids, name: str, ins
 
 
     for key in total_entity_dict:
-        precision, recall, fscore = get_metric(p_dict[key], total_entity_dict[key], total_predict_dict[key])
-        print("[%s] Prec.: %.2f, Rec.: %.2f, F1: %.2f" % (key, precision, recall, fscore))
+        precision_key, recall_key, fscore_key = get_metric(p_dict[key], total_entity_dict[key], total_predict_dict[key])
+        print("[%s] Prec.: %.2f, Rec.: %.2f, F1: %.2f" % (key, precision_key, recall_key, fscore_key))
+        if key == config.new_type:
+            precision_new_type, recall_new_type, fscore_new_type = get_metric(p_dict[key], total_entity_dict[key], total_predict_dict[key])
 
     total_p = sum(list(p_dict.values()))
     total_predict = sum(list(total_predict_dict.values()))
     total_entity = sum(list(total_entity_dict.values()))
     precision, recall, fscore = get_metric(total_p, total_entity, total_predict)
     print("[%s set Total] Prec.: %.2f, Rec.: %.2f, F1: %.2f" % (name, precision, recall, fscore), flush=True)
-    return [precision, recall, fscore]
-
+    return [precision_new_type, recall_new_type, fscore_new_type]
 
 def main():
     parser = argparse.ArgumentParser(description="LSTM CRF implementation")
