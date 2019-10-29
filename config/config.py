@@ -67,6 +67,7 @@ class Config:
         self.add_label_constraint = args.add_label_constraint
         self.use_end2end = args.use_end2end
         self.new_type = args.new_type
+        self.choose_by_new_type = args.choose_by_new_type
         self.typing_model = args.typing_model
         self.hard_model = args.model_strict
         self.extraction_model = args.extraction_model

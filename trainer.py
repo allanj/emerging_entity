@@ -62,7 +62,7 @@ def parse_arguments(parser):
     parser.add_argument('--add_label_constraint', type=int, default=0, choices=[0, 1], help="Add BIES constraints")
     parser.add_argument('--new_type', type=str, default="MISC", help="The new entity type for zero-shot entity recognition.")
     parser.add_argument('--use_end2end', type=int, default=0, choices=[0, 1], help="Use end2end model which contains prefix label and if you use it, use_fined_labels should be 1")
-    
+    parser.add_argument('--choose_by_new_type', type=int, default=0, choices=[0, 1], help="Choose best model by the performance on new type entities!")
     """
     NOTE: if you use end2end, `extraction_model` and `typing_model` should be 0 both.
     """
@@ -192,7 +192,10 @@ def evaluate_model(config: Config, model: NNCRF, batch_insts_ids, name: str, ins
     total_entity = sum(list(total_entity_dict.values()))
     precision, recall, fscore = get_metric(total_p, total_entity, total_predict)
     print("[%s set Total] Prec.: %.2f, Rec.: %.2f, F1: %.2f" % (name, precision, recall, fscore), flush=True)
-    return [precision_new_type, recall_new_type, fscore_new_type]
+    if config.choose_by_new_type:
+        return [precision_new_type, recall_new_type, fscore_new_type]
+    else:
+        return [precision, recall, fscore]
 
 def main():
     parser = argparse.ArgumentParser(description="LSTM CRF implementation")
