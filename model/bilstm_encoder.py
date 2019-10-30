@@ -149,7 +149,7 @@ class BiLSTMEncoder(nn.Module):
             outputs = outputs.view(batch_size, sent_len, num_fined_labels, 1).expand(batch_size, sent_len, num_fined_labels, self.label_size)
             outputs = outputs * self.filter
             if self.inference_method == IF.max:
-                outputs = outputs.max(dim=-2)
+                outputs, _ = outputs.max(dim=-2)
             elif self.inference_method == IF.sum:
                 outputs = outputs.sum(dim=-2)
             else:
