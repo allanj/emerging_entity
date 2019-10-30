@@ -75,7 +75,7 @@ class BiLSTMEncoder(nn.Module):
 
             # self.fined2labels = nn.Linear(self.fined_label_size, self.label_size, bias=False).to(self.device)
             label_mapping_weight = self.init_label_mapping_weight()
-            self.filter = nn.Parameter(torch.from_numpy(label_mapping_weight), requires_grad=False)
+            self.filter = nn.Parameter(torch.from_numpy(label_mapping_weight).to(self.device).float(), requires_grad=False)
             self.inference_method = IF.sum
 
 
