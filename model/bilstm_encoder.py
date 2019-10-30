@@ -73,10 +73,10 @@ class BiLSTMEncoder(nn.Module):
         self.hidden2tag = nn.Linear(final_hidden_dim, tag_size).to(self.device)
         if self.use_fined_labels:
 
-            self.fined2labels = nn.Linear(self.fined_label_size, self.label_size, bias=False).to(self.device)
+            # self.fined2labels = nn.Linear(self.fined_label_size, self.label_size, bias=False).to(self.device)
             label_mapping_weight = self.init_label_mapping_weight()
             self.filter = nn.Parameter(torch.from_numpy(label_mapping_weight).to(self.device).float(), requires_grad=False)
-            self.inference_method = IF.sum
+            self.inference_method = IF[config.inference_method]
 
 
             # self.fined2labels.weight.data.copy_(torch.from_numpy(label_mapping_weight))
@@ -84,8 +84,6 @@ class BiLSTMEncoder(nn.Module):
             # self.fined2labels.zero_grad()
             ### initialize the weight
             ### add transition constraints for not all labels. (probably in CRF layer)
-
-
 
     def init_label_mapping_weight(self) -> np.ndarray:
         mapping_weight = np.zeros((self.fined_label_size, self.label_size))

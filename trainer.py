@@ -63,6 +63,7 @@ def parse_arguments(parser):
     parser.add_argument('--new_type', type=str, default="MISC", help="The new entity type for zero-shot entity recognition.")
     parser.add_argument('--use_end2end', type=int, default=0, choices=[0, 1], help="Use end2end model which contains prefix label and if you use it, use_fined_labels should be 1")
     parser.add_argument('--choose_by_new_type', type=int, default=0, choices=[0, 1], help="Choose best model by the performance on new type entities!")
+    parser.add_argument('--inference_method', type=str, default="sum", choices=["sum", "max", "softmax"], help="Inference method for the latent-variable model!")
     """
     NOTE: if you use end2end, `extraction_model` and `typing_model` should be 0 both.
     """

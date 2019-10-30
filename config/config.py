@@ -71,6 +71,7 @@ class Config:
         self.typing_model = args.typing_model
         self.hard_model = args.model_strict
         self.extraction_model = args.extraction_model
+        self.inference_method = args.inference_method
 
         self.dataset = args.dataset
         self.dev_extraction = "results/extraction_dev.results"
