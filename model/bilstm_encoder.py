@@ -8,6 +8,24 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from overrides import overrides
 import numpy as np
+from enum import Enum
+
+class IF(Enum):
+    sum = 0
+    max = 1
+    softmax = 2
+
+
+def lse(vec: torch.Tensor) -> torch.Tensor:
+    """
+    Calculate the log_sum_exp trick for the tensor.
+    :param vec: [batchSize x sent_len x from_label x to_label].
+    :return: [batchSize x sent_len * to_label]
+    """
+    maxScores, idx = torch.max(vec, 2)
+    maxScores[maxScores == -float("Inf")] = 0
+    maxScoresExpanded = maxScores.view(vec.shape[0] , vec.shape[1],1 , vec.shape[3]).expand(vec.shape[0], vec.shape[1], vec.shape[2], vec.shape[3])
+    return maxScores + torch.log(torch.sum(torch.exp(vec - maxScoresExpanded), 2))
 
 class BiLSTMEncoder(nn.Module):
 
@@ -54,23 +72,30 @@ class BiLSTMEncoder(nn.Module):
         tag_size = self.fined_label_size if self.use_fined_labels else self.label_size
         self.hidden2tag = nn.Linear(final_hidden_dim, tag_size).to(self.device)
         if self.use_fined_labels:
-            self.fined2labels = nn.Linear(self.fined_label_size, self.label_size, bias=False).to(self.device)
+
+            # self.fined2labels = nn.Linear(self.fined_label_size, self.label_size, bias=False).to(self.device)
             label_mapping_weight = self.init_label_mapping_weight()
-            self.fined2labels.weight.data.copy_(torch.from_numpy(label_mapping_weight))
-            self.fined2labels.weight.requires_grad = False  # not updating the weight.
-            self.fined2labels.zero_grad()
+            self.filter = nn.Parameter(torch.from_numpy(label_mapping_weight), requires_grad=False)
+            self.inference_method = IF.sum
+
+
+            # self.fined2labels.weight.data.copy_(torch.from_numpy(label_mapping_weight))
+            # self.fined2labels.weight.requires_grad = False  # not updating the weight.
+            # self.fined2labels.zero_grad()
             ### initialize the weight
             ### add transition constraints for not all labels. (probably in CRF layer)
 
+
+
     def init_label_mapping_weight(self) -> np.ndarray:
-        mapping_weight = np.zeros((self.label_size, self.fined_label_size))
+        mapping_weight = np.zeros((self.fined_label_size, self.label_size))
         for fined_label in self.fined_label2idx:
             ##enumerating fined_labels
             if fined_label in self.label2idx:
-                mapping_weight[self.label2idx[fined_label], self.fined_label2idx[fined_label]] = 1.0
+                mapping_weight[self.fined_label2idx[fined_label], self.label2idx[fined_label]] = 1.0
             else:
                 for coarse_idx in self.find_other_coarse_idx(fined_label=fined_label):
-                    mapping_weight[coarse_idx, self.fined_label2idx[fined_label]] = 1.0
+                    mapping_weight[self.fined_label2idx[fined_label], coarse_idx] = 1.0
         return mapping_weight
 
     def find_other_coarse_idx(self, fined_label:str):
@@ -121,7 +146,19 @@ class BiLSTMEncoder(nn.Module):
 
         outputs = self.hidden2tag(feature_out)
         if self.use_fined_labels:
-            outputs = self.fined2labels(outputs)
+            # outputs = self.fined2labels(outputs)
+            batch_size, sent_len, num_fined_labels = outputs.size()
+            outputs = outputs.view(batch_size, sent_len, num_fined_labels, 1).expand(batch_size, sent_len, num_fined_labels, self.label_size)
+            outputs = outputs * self.filter
+            if self.inference_method == IF.max:
+                outputs = outputs.max(dim=-2)
+            elif self.inference_method == IF.sum:
+                outputs = outputs.sum(dim=-2)
+            else:
+                outputs = lse(outputs)
+
+
+
 
         return outputs[recover_idx]
 
