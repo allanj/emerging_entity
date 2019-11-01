@@ -73,20 +73,20 @@ class BiLSTMEncoder(nn.Module):
         self.hidden2tag = nn.Linear(final_hidden_dim, tag_size).to(self.device)
         if self.use_fined_labels:
 
-            # self.fined2labels = nn.Linear(self.fined_label_size, self.label_size, bias=False).to(self.device)
+            self.fined2labels = nn.Linear(self.fined_label_size, self.label_size, bias=False).to(self.device)
             label_mapping_weight = self.init_label_mapping_weight()
-            self.filter = nn.Parameter(torch.from_numpy(label_mapping_weight).to(self.device).float(), requires_grad=False)
-            self.inference_method = IF[config.inference_method]
+            # self.filter = nn.Parameter(torch.from_numpy(label_mapping_weight).to(self.device).float(), requires_grad=False)
+            # self.inference_method = IF[config.inference_method]
 
 
-            # self.fined2labels.weight.data.copy_(torch.from_numpy(label_mapping_weight))
-            # self.fined2labels.weight.requires_grad = False  # not updating the weight.
-            # self.fined2labels.zero_grad()
+            self.fined2labels.weight.data.copy_(torch.from_numpy(label_mapping_weight))
+            self.fined2labels.weight.requires_grad = False  # not updating the weight.
+            self.fined2labels.zero_grad()
             ### initialize the weight
             ### add transition constraints for not all labels. (probably in CRF layer)
 
     def init_label_mapping_weight(self) -> np.ndarray:
-        mapping_weight = np.zeros((self.fined_label_size, self.label_size))
+        """mapping_weight = np.zeros((self.fined_label_size, self.label_size))
         for fined_label in self.fined_label2idx:
             ##enumerating fined_labels
             if fined_label in self.label2idx:
@@ -94,6 +94,14 @@ class BiLSTMEncoder(nn.Module):
             else:
                 for coarse_idx in self.find_other_coarse_idx(fined_label=fined_label):
                     mapping_weight[self.fined_label2idx[fined_label], coarse_idx] = 1.0
+        return mapping_weight"""
+        mapping_weight = np.zeros((self.label_size, self.fined_label_size))
+        for fined_label in self.fined_label2idx:
+            if fined_label in self.label2idx:
+                mapping_weight[self.label2idx[fined_label], self.fined_label2idx[fined_label]] = 1.0
+            else:
+                for coarse_idx in self.find_other_coarse_idx(fined_label=fined_label):
+                    mapping_weight[coarse_idx, self.fined_label2idx[fined_label]] = 1.0
         return mapping_weight
 
     def find_other_coarse_idx(self, fined_label:str):
@@ -101,7 +109,7 @@ class BiLSTMEncoder(nn.Module):
         assert  fined_label.endswith("_NOT") or (len(fined_label) == 2 and '-' in fined_label)
         for coarse_label in self.label2idx:
             if fined_label.endswith("_NOT"):
-                if coarse_label[:2] == fined_label[:2] and fined_label[:-4] != coarse_label:
+                if (coarse_label[:2] == fined_label[:2] and fined_label[:-4] != coarse_label) or coarse_label == "O":
                     yield self.label2idx[coarse_label]
             elif self.use_end2end:
                 if coarse_label[:2] == fined_label:
@@ -144,16 +152,16 @@ class BiLSTMEncoder(nn.Module):
 
         outputs = self.hidden2tag(feature_out)
         if self.use_fined_labels:
-            # outputs = self.fined2labels(outputs)
-            batch_size, sent_len, num_fined_labels = outputs.size()
-            outputs = outputs.view(batch_size, sent_len, num_fined_labels, 1).expand(batch_size, sent_len, num_fined_labels, self.label_size)
-            outputs = outputs * self.filter
-            if self.inference_method == IF.max:
-                outputs, _ = outputs.max(dim=-2)
-            elif self.inference_method == IF.sum:
-                outputs = outputs.sum(dim=-2)
-            else:
-                outputs = lse(outputs)
+            outputs = self.fined2labels(outputs)
+            #batch_size, sent_len, num_fined_labels = outputs.size()
+            #outputs = outputs.view(batch_size, sent_len, num_fined_labels, 1).expand(batch_size, sent_len, num_fined_labels, self.label_size)
+            #outputs = outputs * self.filter
+            #if self.inference_method == IF.max:
+                #outputs, _ = outputs.max(dim=-2)
+            #elif self.inference_method == IF.sum:
+                #outputs = outputs.sum(dim=-2)
+            #else:
+                #outputs = lse(outputs)
 
 
 
