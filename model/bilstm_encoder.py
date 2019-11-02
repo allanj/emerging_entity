@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 
+from typing import List
 from config import Config, ContextEmb, START, STOP,PAD
 from model.charbilstm import CharBiLSTM
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
@@ -9,6 +10,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from overrides import overrides
 import numpy as np
 from enum import Enum
+from itertools import combinations
 
 class IF(Enum):
     sum = 0
@@ -73,11 +75,14 @@ class BiLSTMEncoder(nn.Module):
         self.hidden2tag = nn.Linear(final_hidden_dim, tag_size).to(self.device)
         if self.use_fined_labels:
 
-            self.fined2labels = nn.Linear(self.fined_label_size, self.label_size, bias=False).to(self.device)
-            label_mapping_weight = self.init_label_mapping_weight()
+
+            label_mapping_weight = self.init_dense_label_mapping_weight()
+            row = label_mapping_weight.shape[0]
+
+            self.fined2labels = nn.Linear(self.fined_label_size, row, bias=False).to(self.device)
+
             # self.filter = nn.Parameter(torch.from_numpy(label_mapping_weight).to(self.device).float(), requires_grad=False)
             # self.inference_method = IF[config.inference_method]
-
 
             self.fined2labels.weight.data.copy_(torch.from_numpy(label_mapping_weight))
             self.fined2labels.weight.requires_grad = False  # not updating the weight.
@@ -96,6 +101,8 @@ class BiLSTMEncoder(nn.Module):
                     mapping_weight[self.fined_label2idx[fined_label], coarse_idx] = 1.0
         return mapping_weight"""
         mapping_weight = np.zeros((self.label_size, self.fined_label_size))
+
+
         for fined_label in self.fined_label2idx:
             if fined_label in self.label2idx:
                 mapping_weight[self.label2idx[fined_label], self.fined_label2idx[fined_label]] = 1.0
@@ -104,7 +111,46 @@ class BiLSTMEncoder(nn.Module):
                     mapping_weight[coarse_idx, self.fined_label2idx[fined_label]] = 1.0
         return mapping_weight
 
+    def init_dense_label_mapping_weight(self) -> np.ndarray:
+        layers = []
+        for coarse_label in self.label2idx:
+            orig_fined_label_idx = self.fined_label2idx[coarse_label]
+            valid_indexs = self.find_other_fined_idx(coarse_label=coarse_label) ## excluding coarse_label itself
+            linear_layer_index = 0
+            for n in range(len(valid_indexs), len(valid_indexs) + 1):
+                for combination in combinations(valid_indexs, n):
+                    mapping_weight = np.zeros((self.label_size, self.fined_label_size))
+                    mapping_weight[self.label2idx[coarse_label] + linear_layer_index * self.label_size, orig_fined_label_idx] = 1.0
+                    mapping_weight[self.label2idx[coarse_label] + linear_layer_index * self.label_size, combination] = 1.0
+                    linear_layer_index += 1
+                    layers.append(mapping_weight)
+        return np.concatenate(layers)
+
+    def find_other_fined_idx(self, coarse_label:str) -> List[int]:
+        """
+        According to the coarse labels in the CRF layer, find a list of valid fined label indexs.
+        :param coarse_label:
+        :return: a list of valid indexes
+        """
+
+        valid_fined_label_idxs = []
+        for fined_label in self.fined_label2idx:
+            if fined_label.endswith("_NOT"):
+                if (coarse_label[:2] == fined_label[:2] and fined_label[:-4] != coarse_label[:-4]) or coarse_label == "O":
+                    valid_fined_label_idxs.append(self.fined_label2idx[fined_label])
+            else:
+                if len(fined_label) == 2 and coarse_label[:2] == fined_label[:2]:
+                    assert (len(fined_label) == 2 and '-' in fined_label)
+                    valid_fined_label_idxs.append(self.fined_label2idx[fined_label])
+        return valid_fined_label_idxs
+
+
     def find_other_coarse_idx(self, fined_label:str):
+        """
+        Acoording to the fined labels right after LSTM layer and find a list of valid coarse labels.
+        :param fined_label:
+        :return:
+        """
         ## fined label must be "_NOT"
         assert  fined_label.endswith("_NOT") or (len(fined_label) == 2 and '-' in fined_label)
         for coarse_label in self.label2idx:
@@ -163,8 +209,15 @@ class BiLSTMEncoder(nn.Module):
             #else:
                 #outputs = lse(outputs)
 
-
-
+            ## in the new model, outputs is with size: batch_size x sent_len x ( coarse_label x #linear layer)
+            # batch_size, sent_len, num_all = outputs.size()
+            # outputs = outputs.view(batch_size, sent_len, 1, num_all).view(batch_size, sent_len, -1, self.label_size)
+            # if self.inference_method == IF.max:
+            #     outputs, _ = outputs.max(dim=-2)
+            # elif self.inference_method == IF.sum:
+            #     outputs = outputs.sum(dim=-2)
+            # else:
+            #     outputs = lse(outputs)
 
         return outputs[recover_idx]
 
