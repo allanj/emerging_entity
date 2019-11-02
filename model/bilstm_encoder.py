@@ -75,11 +75,11 @@ class BiLSTMEncoder(nn.Module):
         self.hidden2tag = nn.Linear(final_hidden_dim, tag_size).to(self.device)
         if self.use_fined_labels:
 
+            auxilary_labels = set([config.START_TAG, config.STOP_TAG, config.PAD])
+            self.num_linear_layer = len(set(label[2:] if len(label) > 2 else label for label in self.label2idx if label not in auxilary_labels))## number of entity labels
 
+            self.fined2labels = nn.Linear(self.fined_label_size, 1 * self.label_size, bias=False).to(self.device)
             label_mapping_weight = self.init_dense_label_mapping_weight()
-            row = label_mapping_weight.shape[0]
-
-            self.fined2labels = nn.Linear(self.fined_label_size, row, bias=False).to(self.device)
 
             # self.filter = nn.Parameter(torch.from_numpy(label_mapping_weight).to(self.device).float(), requires_grad=False)
             # self.inference_method = IF[config.inference_method]
@@ -113,18 +113,18 @@ class BiLSTMEncoder(nn.Module):
 
     def init_dense_label_mapping_weight(self) -> np.ndarray:
         layers = []
-        for coarse_label in self.label2idx:
-            orig_fined_label_idx = self.fined_label2idx[coarse_label]
-            valid_indexs = self.find_other_fined_idx(coarse_label=coarse_label) ## excluding coarse_label itself
-            linear_layer_index = 0
-            for n in range(len(valid_indexs), len(valid_indexs) + 1):
-                for combination in combinations(valid_indexs, n):
-                    mapping_weight = np.zeros((self.label_size, self.fined_label_size))
-                    mapping_weight[self.label2idx[coarse_label] + linear_layer_index * self.label_size, orig_fined_label_idx] = 1.0
-                    mapping_weight[self.label2idx[coarse_label] + linear_layer_index * self.label_size, combination] = 1.0
-                    linear_layer_index += 1
-                    layers.append(mapping_weight)
-        return np.concatenate(layers)
+        ## change the start back to one.
+        for num in range(self.num_linear_layer, self.num_linear_layer + 1):  ## the number of children in an hyperedge., starting from 1.
+            mapping_weight = np.zeros((self.label_size, self.fined_label_size))
+            for coarse_label in self.label2idx:
+                orig_fined_label_idx = self.fined_label2idx[coarse_label]
+                mapping_weight[self.label2idx[coarse_label], orig_fined_label_idx] = 1.0
+                valid_indexs = self.find_other_fined_idx(coarse_label=coarse_label)  ## excluding coarse_label itself
+                for combination in combinations(valid_indexs, num):
+                    mapping_weight[self.label2idx[coarse_label], combination] = 1.0
+            layers.append(mapping_weight)
+        # return np.concatenate(layers)
+        return layers[-1]
 
     def find_other_fined_idx(self, coarse_label:str) -> List[int]:
         """

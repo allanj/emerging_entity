@@ -45,9 +45,9 @@ def parse_arguments(parser):
     parser.add_argument('--lr_decay', type=float, default=0)
     parser.add_argument('--batch_size', type=int, default=10, help="default batch size is 10 (works well)")
     parser.add_argument('--num_epochs', type=int, default=100, help="Usually we set to 10.")
-    parser.add_argument('--train_num', type=int, default=-1, help="-1 means all the data")
-    parser.add_argument('--dev_num', type=int, default=-1, help="-1 means all the data")
-    parser.add_argument('--test_num', type=int, default=-1, help="-1 means all the data")
+    parser.add_argument('--train_num', type=int, default=100, help="-1 means all the data")
+    parser.add_argument('--dev_num', type=int, default=10, help="-1 means all the data")
+    parser.add_argument('--test_num', type=int, default=10, help="-1 means all the data")
 
     ##model hyperparameter
     parser.add_argument('--model_folder', type=str, default="english", help="The name to save the model files")
@@ -58,10 +58,10 @@ def parse_arguments(parser):
     parser.add_argument('--context_emb', type=str, default="none", choices=["none", "elmo"],
                         help="contextual word embedding")
 
-    parser.add_argument('--use_fined_labels', type=int, default=0, choices=[0, 1], help="Use finer labels before going to the CRF layer")
-    parser.add_argument('--add_label_constraint', type=int, default=0, choices=[0, 1], help="Add BIES constraints")
+    parser.add_argument('--use_fined_labels', type=int, default=1, choices=[0, 1], help="Use finer labels before going to the CRF layer")
+    parser.add_argument('--add_label_constraint', type=int, default=1, choices=[0, 1], help="Add BIES constraints")
     parser.add_argument('--new_type', type=str, default="MISC", help="The new entity type for zero-shot entity recognition.")
-    parser.add_argument('--use_end2end', type=int, default=0, choices=[0, 1], help="Use end2end model which contains prefix label and if you use it, use_fined_labels should be 1")
+    parser.add_argument('--use_end2end', type=int, default=1, choices=[0, 1], help="Use end2end model which contains prefix label and if you use it, use_fined_labels should be 1")
     parser.add_argument('--choose_by_new_type', type=int, default=0, choices=[0, 1], help="Choose best model by the performance on new type entities!")
     parser.add_argument('--inference_method', type=str, default="sum", choices=["sum", "max", "softmax"], help="Inference method for the latent-variable model!")
     """
@@ -102,9 +102,9 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
 
     model_folder = config.model_folder
     res_folder = "results"
-    if os.path.exists(model_folder):
-        raise FileExistsError(f"The folder {model_folder} exists. Please either delete it or create a new one "
-                              f"to avoid override.")
+    # if os.path.exists(model_folder):
+    #     raise FileExistsError(f"The folder {model_folder} exists. Please either delete it or create a new one "
+    #                           f"to avoid override.")
     model_name = model_folder + "/lstm_crf.m".format()
     config_name = model_folder + "/config.conf"
     res_name = f"{res_folder}/{model_folder}_test.results"
