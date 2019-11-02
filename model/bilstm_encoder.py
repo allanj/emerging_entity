@@ -287,8 +287,8 @@ class BiLSTMEncoder(nn.Module):
 
             ## in the new model, outputs is with size: batch_size x sent_len x ( coarse_label x #linear layer)
             batch_size, sent_len, num_all = outputs.size()
-            mask = torch.from_numpy(self.mask).float().log().unsqueeze(0).unsqueeze(0)
-            outputs = outputs.view(batch_size, sent_len, 1, num_all).view(batch_size, sent_len, -1, self.label_size)
+            mask = torch.from_numpy(self.mask).float().log().unsqueeze(0).unsqueeze(0).to(self.device)
+            outputs = outputs.view(batch_size, sent_len, 1, num_all).view(batch_size, sent_len, -1, self.label_size).to(self.device)
             outputs = outputs + mask ## make sure for those extra dimensions are masked as negative infinity
             if self.inference_method == IF.max:
                 outputs, _ = outputs.max(dim=-2)
