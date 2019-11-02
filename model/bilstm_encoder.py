@@ -100,7 +100,7 @@ class BiLSTMEncoder(nn.Module):
                 auxilary_labels.remove(config.O)
             self.coarse_label2comb = {}
             self.max_num_combinations = 0
-            start = 0
+            start = config.start_num
             for coarse_label in self.label2idx:
                 if coarse_label not in auxilary_labels:
                     combs = []

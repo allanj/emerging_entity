@@ -91,6 +91,7 @@ class Config:
         self.train_num = args.train_num
         self.dev_num = args.dev_num
         self.test_num = args.test_num
+        self.start_num = args.start_num
 
         # Training hyperparameter
         self.model_folder = args.model_folder
