@@ -45,9 +45,9 @@ def parse_arguments(parser):
     parser.add_argument('--lr_decay', type=float, default=0)
     parser.add_argument('--batch_size', type=int, default=10, help="default batch size is 10 (works well)")
     parser.add_argument('--num_epochs', type=int, default=100, help="Usually we set to 10.")
-    parser.add_argument('--train_num', type=int, default=100, help="-1 means all the data")
-    parser.add_argument('--dev_num', type=int, default=10, help="-1 means all the data")
-    parser.add_argument('--test_num', type=int, default=10, help="-1 means all the data")
+    parser.add_argument('--train_num', type=int, default=-1, help="-1 means all the data")
+    parser.add_argument('--dev_num', type=int, default=-1, help="-1 means all the data")
+    parser.add_argument('--test_num', type=int, default=-1, help="-1 means all the data")
 
     ##model hyperparameter
     parser.add_argument('--model_folder', type=str, default="english", help="The name to save the model files")
@@ -58,12 +58,12 @@ def parse_arguments(parser):
     parser.add_argument('--context_emb', type=str, default="none", choices=["none", "elmo"],
                         help="contextual word embedding")
 
-    parser.add_argument('--use_fined_labels', type=int, default=1, choices=[0, 1], help="Use finer labels before going to the CRF layer")
-    parser.add_argument('--add_label_constraint', type=int, default=1, choices=[0, 1], help="Add BIES constraints")
+    parser.add_argument('--use_fined_labels', type=int, default=0 choices=[0, 1], help="Use finer labels before going to the CRF layer")
+    parser.add_argument('--add_label_constraint', type=int, default=0, choices=[0, 1], help="Add BIES constraints")
     parser.add_argument('--new_type', type=str, default="MISC", help="The new entity type for zero-shot entity recognition.")
-    parser.add_argument('--use_end2end', type=int, default=1, choices=[0, 1], help="Use end2end model which contains prefix label and if you use it, use_fined_labels should be 1")
+    parser.add_argument('--use_end2end', type=int, default=0, choices=[0, 1], help="Use end2end model which contains prefix label and if you use it, use_fined_labels should be 1")
     parser.add_argument('--choose_by_new_type', type=int, default=0, choices=[0, 1], help="Choose best model by the performance on new type entities!")
-    parser.add_argument('--inference_method', type=str, default="sum", choices=["sum", "max", "softmax"], help="Inference method for the latent-variable model!")
+    parser.add_argument('--inference_method', type=str, default="softmax", choices=["sum", "max", "softmax"], help="Inference method for the latent-variable model!")
     """
     NOTE: if you use end2end, `extraction_model` and `typing_model` should be 0 both.
     """
@@ -102,9 +102,9 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
 
     model_folder = config.model_folder
     res_folder = "results"
-    # if os.path.exists(model_folder):
-    #     raise FileExistsError(f"The folder {model_folder} exists. Please either delete it or create a new one "
-    #                           f"to avoid override.")
+    if os.path.exists(model_folder):
+        raise FileExistsError(f"The folder {model_folder} exists. Please either delete it or create a new one "
+                              f"to avoid override.")
     model_name = model_folder + "/lstm_crf.m".format()
     config_name = model_folder + "/config.conf"
     res_name = f"{res_folder}/{model_folder}_test.results"
@@ -130,14 +130,14 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
             model.zero_grad()
 
         end_time = time.time()
-        print("Epoch %d: %.5f, Time is %.2fs" % (i, epoch_loss, end_time - start_time), flush=True)
+        print(colored("[Training] Epoch %d: %.5f, Time is %.2fs" % (i, epoch_loss, end_time - start_time), 'red'), flush=True)
 
         model.eval()
         dev_metrics = evaluate_model(config, model, dev_batches, "dev", dev_insts)
         print()
         test_metrics = evaluate_model(config, model, test_batches, "test", test_insts)
         if dev_metrics[2] > best_dev[0]:
-            print("saving the best model...")
+            print("[Training] saving the best model...")
             best_dev[0] = dev_metrics[2]
             best_dev[1] = i
             best_test[0] = test_metrics[2]
@@ -151,15 +151,15 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
             write_results(dev_name, dev_insts)
         model.zero_grad()
 
-    print("Archiving the best Model...")
+    print("[Training] Archiving the best Model...")
     with tarfile.open(model_folder + "/" + model_folder + ".tar.gz", "w:gz") as tar:
         tar.add(model_folder, arcname=os.path.basename(model_folder))
 
-    print("Finished archiving the models")
+    print("[Training] Finished archiving the models")
 
-    print("The best dev: %.2f" % (best_dev[0]))
-    print("The corresponding test: %.2f" % (best_test[0]))
-    print("Final testing.")
+    print("[Training] The best dev: %.2f" % (best_dev[0]))
+    print("[Training] The corresponding test: %.2f" % (best_test[0]))
+    print("[Training] Final testing.")
     model.load_state_dict(torch.load(model_name))
     model.eval()
     evaluate_model(config, model, test_batches, "test", test_insts)
@@ -192,7 +192,7 @@ def evaluate_model(config: Config, model: NNCRF, batch_insts_ids, name: str, ins
     total_predict = sum(list(total_predict_dict.values()))
     total_entity = sum(list(total_entity_dict.values()))
     precision, recall, fscore = get_metric(total_p, total_entity, total_predict)
-    print("[%s set Total] Prec.: %.2f, Rec.: %.2f, F1: %.2f" % (name, precision, recall, fscore), flush=True)
+    print(colored("[%s set Total] Prec.: %.2f, Rec.: %.2f, F1: %.2f" % (name, precision, recall, fscore), 'blue'), flush=True)
     if config.choose_by_new_type:
         return [precision_new_type, recall_new_type, fscore_new_type]
     else:
