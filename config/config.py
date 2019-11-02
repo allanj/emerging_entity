@@ -72,6 +72,7 @@ class Config:
         self.hard_model = args.model_strict
         self.extraction_model = args.extraction_model
         self.inference_method = args.inference_method
+        self.use_hypergraph = args.use_hypergraph
 
         self.dataset = args.dataset
         self.dev_extraction = "results/extraction_dev.results"

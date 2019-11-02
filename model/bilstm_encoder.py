@@ -96,16 +96,21 @@ class BiLSTMEncoder(nn.Module):
                    
             """
             auxilary_labels = set([config.START_TAG, config.STOP_TAG, config.PAD, config.O])
+            if config.use_hypergraph == 0:
+                auxilary_labels.remove(config.O)
             self.coarse_label2comb = {}
             self.max_num_combinations = 0
+            start = 0
             for coarse_label in self.label2idx:
                 if coarse_label not in auxilary_labels:
                     combs = []
                     valid_indexs = self.find_other_fined_idx(coarse_label)
                     ## this commented code is used to test the equivalence with previous implementation. (Also need to remove O in auxilary labels)
-                    # combs += list(combinations(self.find_other_fined_idx(coarse_label), len(valid_indexs)))
-                    for num in range(len(valid_indexs)+1):
-                        combs += list(combinations(self.find_other_fined_idx(coarse_label), num))
+                    if config.use_hypergraph:
+                        for num in range(start, len(valid_indexs)+1):
+                            combs += list(combinations(self.find_other_fined_idx(coarse_label), num))
+                    else:
+                        combs += list(combinations(self.find_other_fined_idx(coarse_label), len(valid_indexs)))
                     self.coarse_label2comb[coarse_label] = combs
                     self.max_num_combinations = max(self.max_num_combinations, len(combs))
                 else:
