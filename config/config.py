@@ -63,9 +63,10 @@ class Config:
         self.use_char_rnn = args.use_char_rnn
         self.use_crf_layer = args.use_crf_layer
 
-        self.use_fined_labels = args.use_fined_labels
+        self.use_fined_labels = 1
         self.add_label_constraint = args.add_label_constraint
-        self.use_end2end = args.use_end2end
+        self.use_boundary = args.use_boundary
+        self.use_neg_labels = args.use_neg_labels
         self.new_type = args.new_type
         self.choose_by_new_type = args.choose_by_new_type
         self.typing_model = args.typing_model
@@ -227,15 +228,15 @@ class Config:
                 if self.use_fined_labels and label not in self.fined_label2idx:
                     self.idx2fined_labels.append(label)
                     self.fined_label2idx[label] = len(self.fined_label2idx)
-                    if label != "O": ##B-per, B-ORG
+                    if label != "O" and self.use_neg_labels: ##B-per, B-ORG
                         negative_label = label + "_NOT"
                         self.idx2fined_labels.append(negative_label)
                         self.fined_label2idx[negative_label] = len(self.fined_label2idx)
-                        if self.use_end2end:
-                            prefix_label = label[:2]
-                            if prefix_label not in self.fined_label2idx:
-                                self.idx2fined_labels.append(prefix_label)
-                                self.fined_label2idx[prefix_label] = len(self.fined_label2idx)
+                    elif label != "O" and self.use_boundary:
+                        prefix_label = label[:2]
+                        if prefix_label not in self.fined_label2idx:
+                            self.idx2fined_labels.append(prefix_label)
+                            self.fined_label2idx[prefix_label] = len(self.fined_label2idx)
 
         if self.use_fined_labels:
             if self.B + self.new_type not in self.label2idx:

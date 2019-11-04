@@ -45,7 +45,8 @@ class BiLSTMEncoder(nn.Module):
         self.labels = config.idx2labels
 
         self.use_fined_labels = config.use_fined_labels
-        self.use_end2end = config.use_end2end
+        self.use_neg_labels = config.use_neg_labels
+        self.use_boundary = config.use_boundary
         self.fined_label2idx = config.fined_label2idx
         self.fined_labels = config.idx2fined_labels
 
@@ -218,7 +219,7 @@ class BiLSTMEncoder(nn.Module):
                 if (coarse_label[:2] == fined_label[:2] and fined_label[:-4] != coarse_label) or coarse_label == "O":
                     valid_fined_label_idxs.append(self.fined_label2idx[fined_label])
             else:
-                if len(fined_label) == 2 and coarse_label[:2] == fined_label[:2] and self.use_end2end:
+                if len(fined_label) == 2 and coarse_label[:2] == fined_label[:2] and self.use_boundary:
                     assert (len(fined_label) == 2 and '-' in fined_label)
                     valid_fined_label_idxs.append(self.fined_label2idx[fined_label])
         return valid_fined_label_idxs
@@ -236,7 +237,7 @@ class BiLSTMEncoder(nn.Module):
             if fined_label.endswith("_NOT"):
                 if (coarse_label[:2] == fined_label[:2] and fined_label[:-4] != coarse_label) or coarse_label == "O":
                     yield self.label2idx[coarse_label]
-            elif self.use_end2end:
+            elif self.use_boundary:
                 if coarse_label[:2] == fined_label:
                     yield self.label2idx[coarse_label]
 

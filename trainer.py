@@ -59,10 +59,11 @@ def parse_arguments(parser):
     parser.add_argument('--context_emb', type=str, default="none", choices=["none", "elmo"],
                         help="contextual word embedding")
 
-    parser.add_argument('--use_fined_labels', type=int, default=0, choices=[0, 1], help="Use finer labels before going to the CRF layer")
     parser.add_argument('--add_label_constraint', type=int, default=0, choices=[0, 1], help="Add BIES constraints")
     parser.add_argument('--new_type', type=str, default="MISC", help="The new entity type for zero-shot entity recognition.")
-    parser.add_argument('--use_end2end', type=int, default=0, choices=[0, 1], help="Use end2end model which contains prefix label and if you use it, use_fined_labels should be 1")
+    
+    parser.add_argument('--use_neg_labels', type=int, default=0, choices=[0, 1], help="Use finer labels before going to the CRF layer")
+    parser.add_argument('--use_boundary', type=int, default=0, choices=[0, 1], help="Use boundary which contains prefix label")
     parser.add_argument('--choose_by_new_type', type=int, default=0, choices=[0, 1], help="Choose best model by the performance on new type entities!")
     parser.add_argument('--inference_method', type=str, default="softmax", choices=["sum", "max", "softmax"], help="Inference method for the latent-variable model!")
     parser.add_argument('--use_hypergraph', type=int, default=0, choices=[0, 1], help="Whether use hypergraph model or not")
