@@ -232,7 +232,7 @@ class Config:
                         negative_label = label + "_NOT"
                         self.idx2fined_labels.append(negative_label)
                         self.fined_label2idx[negative_label] = len(self.fined_label2idx)
-                    elif label != "O" and self.use_boundary:
+                    if label != "O" and self.use_boundary:
                         prefix_label = label[:2]
                         if prefix_label not in self.fined_label2idx:
                             self.idx2fined_labels.append(prefix_label)
