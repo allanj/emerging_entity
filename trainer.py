@@ -67,7 +67,7 @@ def parse_arguments(parser):
     parser.add_argument('--choose_by_new_type', type=int, default=0, choices=[0, 1], help="Choose best model by the performance on new type entities!")
     parser.add_argument('--inference_method', type=str, default="softmax", choices=["sum", "max", "softmax"], help="Inference method for the latent-variable model!")
     parser.add_argument('--use_hypergraph', type=int, default=0, choices=[0, 1], help="Whether use hypergraph model or not")
-    parser.add_argument('--use_fined_labels', type=int, default=0, choices=[0, 1], help="use fined labels or not, this argument determine the latent model")
+    parser.add_argument('--use_fined_labels', type=int, default=1, choices=[0, 1], help="use fined labels or not, this argument determine the latent model")
     """
     NOTE: if you use end2end, `extraction_model` and `typing_model` should be 0 both.
     """
@@ -106,16 +106,18 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
 
     model_folder = config.model_folder
     res_folder = "results"
-    if os.path.exists(model_folder):
-        raise FileExistsError(f"The folder {model_folder} exists. Please either delete it or create a new one "
+    if os.path.exists("model_files/" + model_folder):
+        raise FileExistsError(f"The folder model_files/{model_folder} exists. Please either delete it or create a new one "
                               f"to avoid override.")
-    model_name = model_folder + "/lstm_crf.m".format()
-    config_name = model_folder + "/config.conf"
+    model_name = "model_files/" + model_folder + "/lstm_crf.m".format()
+    config_name = "model_files/" + model_folder + "/config.conf"
     res_name = f"{res_folder}/{model_folder}_test.results"
     dev_name = f"{res_folder}/{model_folder}_dev.results"
     print("[Info] The model will be saved to: %s.tar.gz" % (model_folder))
-    if not os.path.exists(model_folder):
-        os.makedirs(model_folder)
+    if not os.path.exists("model_files"):
+        os.makedirs("model_files")
+    if not os.path.exists("model_files/" + model_folder):
+        os.makedirs("model_files/" + model_folder)
     if not os.path.exists(res_folder):
         os.makedirs(res_folder)
 
@@ -156,8 +158,8 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
         model.zero_grad()
 
     print("[Training] Archiving the best Model...")
-    with tarfile.open(model_folder + "/" + model_folder + ".tar.gz", "w:gz") as tar:
-        tar.add(model_folder, arcname=os.path.basename(model_folder))
+    with tarfile.open("model_files/" + model_folder + "/" + model_folder + ".tar.gz", "w:gz") as tar:
+        tar.add("model_files/" + model_folder, arcname=os.path.basename(model_folder))
 
     print("[Training] Finished archiving the models")
 
