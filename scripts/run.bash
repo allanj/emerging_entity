@@ -39,16 +39,25 @@ else
     ## Below for latent model
     for (( d=0; d<${#datasets[@]}; d++ )) do
         dataset=${datasets[$d]}
-        for (( s=0; s<${#starts[@]}; s++ )) do
-            start=${starts[$s]}
+        for (( b=0; b<${#boundarys[@]}; b++ )) do
+            boundary=${boundarys[$b]}
             for (( n=0; n<${#negs[@]}; n++ )) do
                 neg=${negs[$n]}
-                for (( b=0; b<${#boundarys[@]}; b++ )) do
-                    boundary=${boundarys[$b]}
-                    if [ $neg = 0 ] && [ $boundary = 0 ] ## no operation done for both are 0
-                    then
-                        continue
-                    fi
+                if [ $neg = 0 ] && [ $boundary = 0 ] ## no operation done for both are 0
+                then
+                    continue
+                fi
+                if [ $neg = 1 ] && [ $boundary = 0 ] #
+                then
+                    starts=(0 1 2 3)
+                fi
+                if [ $neg = 0 ] && [ $boundary = 1 ] #
+                then
+                    starts=(0 1)
+                fi
+
+                for (( s=0; s<${#starts[@]}; s++ )) do
+                    start=${starts[$s]}
                     model_folder=${dataset}_${start}_neg_${neg}_boundary_${boundary}_${context_emb}
                     log_file=logs/${dataset}_${start}_neg_${neg}_boundary_${boundary}_${context_emb}.log
                     python3 trainer.py --dataset ${dataset}  --device ${device} --model_folder ${model_folder} \
