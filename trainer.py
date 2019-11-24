@@ -67,6 +67,7 @@ def parse_arguments(parser):
     parser.add_argument('--choose_by_new_type', type=int, default=0, choices=[0, 1], help="Choose best model by the performance on new type entities!")
     parser.add_argument('--inference_method', type=str, default="softmax", choices=["sum", "max", "softmax"], help="Inference method for the latent-variable model!")
     parser.add_argument('--use_hypergraph', type=int, default=0, choices=[0, 1], help="Whether use hypergraph model or not")
+    parser.add_argument('--use_fined_labels', type=int, default=0, choices=[0, 1], help="use fined labels or not, this argument determine the latent model")
     """
     NOTE: if you use end2end, `extraction_model` and `typing_model` should be 0 both.
     """

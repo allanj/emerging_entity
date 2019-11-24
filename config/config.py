@@ -63,7 +63,7 @@ class Config:
         self.use_char_rnn = args.use_char_rnn
         self.use_crf_layer = args.use_crf_layer
 
-        self.use_fined_labels = 1
+        self.use_fined_labels = args.use_fined_labels
         self.add_label_constraint = args.add_label_constraint
         self.use_boundary = args.use_boundary
         self.use_neg_labels = args.use_neg_labels
