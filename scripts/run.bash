@@ -30,7 +30,7 @@ then
                data_file=${dataset}/${new_type}/few_random_${number}
                log_file=logs/${model_folder}_choose_new_type_${choose_new_type}.log
                python3 trainer.py --dataset ${data_file} --model_folder ${model_folder} --use_fined_labels 0 --device cuda:2 \
-                    --choose_by_new_type ${choose_new_type} > ${log_file} 2>&1 & 
+                    --choose_by_new_type ${choose_new_type} --new_type ${new_type} > ${log_file} 2>&1 &
              done
         done
     done
@@ -65,7 +65,7 @@ else
                             model_folder=${dataset}_${new_type}_random_${number}_${choose_new_type}_start_${start}_neg_${neg}_boundary_${boundary}_${context_emb}
                             log_file=logs/${model_folder}.log
                             python3 trainer.py --dataset ${data_file}  --device ${device} --model_folder ${model_folder} \
-                             --add_label_constraint 1 --new_type MISC --use_neg_labels ${neg} --use_boundary ${boundary} --use_fined_labels 1 \
+                             --add_label_constraint 1 --new_type ${new_type} --use_neg_labels ${neg} --use_boundary ${boundary} --use_fined_labels 1 \
                              --inference_method softmax --use_hypergraph 1 --start_num ${start} --context_emb ${context_emb} > ${log_file} 2>&1
                         done
                     done
