@@ -6,8 +6,8 @@
 datasets=(conll2003)
 
 device=cuda:1
-negs=(1)
-boundarys=(1)
+negs=(0 1)
+boundarys=(0 1)
 starts=(0 1 2 3 4)
 
 run_latent_model=1
