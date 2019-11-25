@@ -48,8 +48,7 @@ def parse_arguments(parser):
     parser.add_argument('--train_num', type=int, default=-1, help="-1 means all the data")
     parser.add_argument('--dev_num', type=int, default=-1, help="-1 means all the data")
     parser.add_argument('--test_num', type=int, default=-1, help="-1 means all the data")
-    parser.add_argument('--start_num', type=int, default=0, help="the size of combinations")
-
+    
     ##model hyperparameter
     parser.add_argument('--model_folder', type=str, default="english", help="The name to save the model files")
     parser.add_argument('--hidden_dim', type=int, default=200, help="hidden size of the LSTM")

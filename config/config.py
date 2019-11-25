@@ -93,8 +93,7 @@ class Config:
         self.train_num = args.train_num
         self.dev_num = args.dev_num
         self.test_num = args.test_num
-        self.start_num = args.start_num
-
+        
         # Training hyperparameter
         self.model_folder = args.model_folder
         self.optimizer = args.optimizer.lower()
@@ -226,16 +225,17 @@ class Config:
                     self.idx2labels.append(label)
                     self.label2idx[label] = len(self.label2idx)
 
-                if self.use_fined_labels and (label == "O" or label[2:] not in self.fined_label2idx):
+                if self.use_fined_labels:
                     if label == "O":
                         self.idx2fined_labels.append(label)
                         self.fined_label2idx[label] = len(self.fined_label2idx)
                     else:
-                        self.idx2fined_labels.append(label[2:])
-                        self.fined_label2idx[label[2:]] = len(self.fined_label2idx)
-                        negative_label = label[2:] + "-NEG"
-                        self.idx2fined_labels.append(negative_label)
-                        self.fined_label2idx[negative_label] = len(self.fined_label2idx)
+                        if label[2:] not in self.fined_label2idx:
+                            self.idx2fined_labels.append(label[2:])
+                            self.fined_label2idx[label[2:]] = len(self.fined_label2idx)
+                            negative_label = label[2:] + "-NEG"
+                            self.idx2fined_labels.append(negative_label)
+                            self.fined_label2idx[negative_label] = len(self.fined_label2idx)
                         prefix_label = label[:2]
                         if prefix_label not in self.fined_label2idx:
                             self.idx2fined_labels.append(prefix_label)
