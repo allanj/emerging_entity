@@ -68,6 +68,8 @@ def parse_arguments(parser):
     parser.add_argument('--inference_method', type=str, default="softmax", choices=["sum", "max", "softmax"], help="Inference method for the latent-variable model!")
     parser.add_argument('--use_hypergraph', type=int, default=0, choices=[0, 1], help="Whether use hypergraph model or not")
     parser.add_argument('--use_fined_labels', type=int, default=1, choices=[0, 1], help="use fined labels or not, this argument determine the latent model")
+    parser.add_argument('--heuristic', type=int, default=0, choices=[0, 1],
+                        help="use heuristic combinations, using this will disable to ability of the start")
     """
     NOTE: if you use end2end, `extraction_model` and `typing_model` should be 0 both.
     """

@@ -106,8 +106,11 @@ class BiLSTMEncoder(nn.Module):
                     valid_indexs = self.find_other_fined_idx(coarse_label)
                     ## this commented code is used to test the equivalence with previous implementation. (Also need to remove O in auxilary labels)
                     if config.use_hypergraph and coarse_label != config.O:
-                        for num in range(start, len(valid_indexs)+1):
-                            combs += list(combinations(self.find_other_fined_idx(coarse_label), num))
+                        if config.heuristic:
+                            combs = self.find_heuristic_combination(coarse_label=coarse_label)
+                        else:
+                            for num in range(start, len(valid_indexs)+1):
+                                combs += list(combinations(self.find_other_fined_idx(coarse_label), num))
                     else:
                         combs += list(combinations(self.find_other_fined_idx(coarse_label), len(valid_indexs)))
                     self.coarse_label2comb[coarse_label] = combs
@@ -223,6 +226,31 @@ class BiLSTMEncoder(nn.Module):
                     assert (len(fined_label) == 2 and '-' in fined_label)
                     valid_fined_label_idxs.append(self.fined_label2idx[fined_label])
         return valid_fined_label_idxs
+
+    def find_heuristic_combination(self, coarse_label:str) -> List[List[int]]:
+        """
+        According to the coarse labels in the CRF layer, find heuristic combinations
+        :param coarse_label:
+        :return: a list of valid indexes
+        """
+        combs = [[]] ## the first one is the
+        not_comb = [] ## the second one connect all the negation.
+        boundary_comb = []
+        for fined_label in self.fined_label2idx:
+            if fined_label.endswith("_NOT"):
+                if (coarse_label[:2] == fined_label[:2] and fined_label[:-4] != coarse_label) or coarse_label == "O":
+                    not_comb.append(self.fined_label2idx[fined_label])
+            else:
+                if len(fined_label) == 2 and coarse_label[:2] == fined_label[:2] and self.use_boundary:
+                    assert (len(fined_label) == 2 and '-' in fined_label)
+                    boundary_comb.append(self.fined_label2idx[fined_label])
+        if len(not_comb) > 0:
+            combs.append(not_comb)
+        if len(boundary_comb) > 0:
+            combs.append(boundary_comb)
+        if len(not_comb) > 0 and len(boundary_comb) > 0:
+            combs.append(not_comb + boundary_comb)
+        return combs
 
 
     def find_other_coarse_idx(self, fined_label:str):

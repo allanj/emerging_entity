@@ -25,7 +25,7 @@ then
            model_folder=${dataset}_${choose_new_type}
            log_file=logs/${model_folder}.log
            python3 trainer.py --dataset ${dataset} --model_folder ${model_folder} --use_fined_labels 0 --device ${device} \
-                    --choose_by_new_type ${choose_new_type} > ${log_file} 2>&1 & 
+                    --choose_by_new_type ${choose_new_type}  > ${log_file} 2>&1 &
 
     done
 
