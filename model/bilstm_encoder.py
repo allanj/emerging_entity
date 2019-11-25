@@ -99,20 +99,19 @@ class BiLSTMEncoder(nn.Module):
             auxilary_labels = set([config.START_TAG, config.STOP_TAG, config.PAD])
             self.coarse_label2comb = {}
             self.max_num_combinations = 0
-            start = config.start_num
             for coarse_label in self.label2idx:
-                if coarse_label not in auxilary_labels:
-                    combs = []
-                    valid_indexs = self.find_other_fined_idx(coarse_label)
-                    ## this commented code is used to test the equivalence with previous implementation. (Also need to remove O in auxilary labels)
-                    if config.use_hypergraph:
-                        combs = self.find_heuristic_combination(coarse_label=coarse_label)
-                    else:
-                        combs = list(combinations(self.find_other_fined_idx(coarse_label), len(valid_indexs)))
-                    self.coarse_label2comb[coarse_label] = combs
-                    self.max_num_combinations = max(self.max_num_combinations, len(combs))
+                # if coarse_label not in auxilary_labels:
+                combs = []
+                valid_indexs = self.find_other_fined_idx(coarse_label)
+                ## this commented code is used to test the equivalence with previous implementation. (Also need to remove O in auxilary labels)
+                if config.use_hypergraph:
+                    combs = self.find_heuristic_combination(coarse_label=coarse_label)
                 else:
-                    self.coarse_label2comb[coarse_label] = [()] ## only itself for "start", "end", and "pad" labels and "O"???
+                    combs = list(combinations(self.find_other_fined_idx(coarse_label), len(valid_indexs)))
+                self.coarse_label2comb[coarse_label] = combs
+                self.max_num_combinations = max(self.max_num_combinations, len(combs))
+                # else:
+                    # self.coarse_label2comb[coarse_label] = [()] ## only itself for "start", "end", and "pad" labels and "O"???
             print(colored(f"[Model Info] Maximum number of combination: {self.max_num_combinations}", 'red'))
             """
             Second step
@@ -214,7 +213,7 @@ class BiLSTMEncoder(nn.Module):
 
         valid_fined_label_idxs = []
         for fined_label in self.fined_label2idx:
-            if fined_label.endswith("-NEG"):
+            if fined_label.endswith("-NEG") and "-" in coarse_label:
                 if fined_label[:-4] != coarse_label[2:]:
                     valid_fined_label_idxs.append(self.fined_label2idx[fined_label])
             else:
@@ -237,7 +236,7 @@ class BiLSTMEncoder(nn.Module):
         entity_comb = [] ## the second one connect all the negation.
         total_comb = []
         for fined_label in self.fined_label2idx:
-            if fined_label.endswith("-NEG"):
+            if fined_label.endswith("-NEG") and "-" in coarse_label:
                 if fined_label[:-4] != coarse_label[2:]:
                     total_comb.append(self.fined_label2idx[fined_label])
             else:

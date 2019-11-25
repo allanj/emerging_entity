@@ -226,10 +226,10 @@ class Config:
                     self.label2idx[label] = len(self.label2idx)
 
                 if self.use_fined_labels:
-                    if label == "O":
+                    if label == "O" and label not in self.fined_label2idx:
                         self.idx2fined_labels.append(label)
                         self.fined_label2idx[label] = len(self.fined_label2idx)
-                    else:
+                    elif "-" in label:
                         if label[2:] not in self.fined_label2idx:
                             self.idx2fined_labels.append(label[2:])
                             self.fined_label2idx[label[2:]] = len(self.fined_label2idx)
