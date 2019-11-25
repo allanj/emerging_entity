@@ -18,7 +18,7 @@ run_latent_model=0
 context_emb=none
 heuristic=0
 
-num_epoch=100
+num_epoch=150
 
 if [ $run_latent_model = 0 ]
 then
@@ -69,7 +69,8 @@ else
                             log_file=logs/${model_folder}.log
                             python3 trainer.py --dataset ${data_file}  --device ${device} --model_folder ${model_folder} --heuristic ${heuristic} \
                              --add_label_constraint 1 --new_type ${new_type} --use_neg_labels ${neg} --use_boundary ${boundary} --use_fined_labels 1 \
-                             --inference_method softmax --use_hypergraph 1 --start_num ${start} --context_emb ${context_emb} --num_epochs ${num_epoch} > ${log_file} 2>&1
+                             --inference_method softmax --use_hypergraph 1 --start_num ${start} --context_emb ${context_emb} \
+                              --choose_by_new_type ${choose_new_type} --num_epochs ${num_epoch} > ${log_file} 2>&1
                         done
                     done
                 done
