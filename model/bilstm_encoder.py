@@ -96,7 +96,7 @@ class BiLSTMEncoder(nn.Module):
             Second step: (Where amazing happens) (Check out the `init_dense_label_mapping_weight` function)
                    
             """
-            auxilary_labels = set([config.START_TAG, config.STOP_TAG, config.PAD])
+            auxilary_labels = set([config.START_TAG, config.STOP_TAG, config.PAD, "O"]) ##excluded O labels
             self.coarse_label2comb = {}
             self.max_num_combinations = 0
             start = config.start_num
