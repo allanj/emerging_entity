@@ -116,7 +116,7 @@ class BiLSTMEncoder(nn.Module):
                     self.coarse_label2comb[coarse_label] = combs
                     self.max_num_combinations = max(self.max_num_combinations, len(combs))
                 else:
-                    self.coarse_label2comb[coarse_label] = [()] ## only itself for "start", "end", and "pad" labels and "O"???
+                    self.coarse_label2comb[coarse_label] = [[]] ## only itself for "start", "end", and "pad" labels and "O"???
             print(colored(f"[Model Info] Maximum number of combination: {self.max_num_combinations}", 'red'))
             """
             Second step
@@ -127,7 +127,7 @@ class BiLSTMEncoder(nn.Module):
             self.inference_method = IF[config.inference_method]
 
             self.fined2labels.weight.data.copy_(torch.from_numpy(label_mapping_weight))
-            self.fined2labels.weight.requires_grad = False  # not updating the weight.
+            # self.fined2labels.weight.requires_grad = False  # not updating the weight.
             self.fined2labels.zero_grad()
             ### initialize the weight
             ### add transition constraints for not all labels. (probably in CRF layer)
@@ -204,7 +204,13 @@ class BiLSTMEncoder(nn.Module):
                 self.mask[num, self.label2idx[coarse_label]] = 1
                 orig_fined_label_idx = self.fined_label2idx[coarse_label]
                 mapping_weight[self.label2idx[coarse_label], orig_fined_label_idx] = 1.0
-                mapping_weight[self.label2idx[coarse_label], combs[k]] = 1.0
+                if len(combs[k]) > 0:
+                    for idx in combs[k]:
+                        if len(self.fined_labels[idx]) == 2:
+                            mapping_weight[self.label2idx[coarse_label], idx] = -2.0
+                        else:
+                            mapping_weight[self.label2idx[coarse_label], idx] = 1.0
+                
             k += 1
             layers.append(mapping_weight)
         return np.concatenate(layers)
@@ -219,12 +225,16 @@ class BiLSTMEncoder(nn.Module):
         valid_fined_label_idxs = []
         for fined_label in self.fined_label2idx:
             if fined_label.endswith("_NOT"):
-                if (coarse_label[:2] == fined_label[:2] and fined_label[:-4] != coarse_label) or coarse_label == "O":
+                if (coarse_label[:2] == fined_label[:2] and fined_label[:-4] != coarse_label):
                     valid_fined_label_idxs.append(self.fined_label2idx[fined_label])
             else:
                 if len(fined_label) == 2 and coarse_label[:2] == fined_label[:2] and self.use_boundary:
                     assert (len(fined_label) == 2 and '-' in fined_label)
                     valid_fined_label_idxs.append(self.fined_label2idx[fined_label])
+        print(coarse_label, end=" ")
+        for idx in valid_fined_label_idxs:
+            print(self.fined_labels[idx], end=" ")
+        print()
         return valid_fined_label_idxs
 
     def find_heuristic_combination(self, coarse_label:str) -> List[List[int]]:
@@ -238,16 +248,12 @@ class BiLSTMEncoder(nn.Module):
         boundary_comb = []
         for fined_label in self.fined_label2idx:
             if fined_label.endswith("_NOT"):
-                if (coarse_label[:2] == fined_label[:2] and fined_label[:-4] != coarse_label) or coarse_label == "O":
+                if (coarse_label[:2] == fined_label[:2] and fined_label[:-4] != coarse_label):
                     not_comb.append(self.fined_label2idx[fined_label])
             else:
                 if len(fined_label) == 2 and coarse_label[:2] == fined_label[:2] and self.use_boundary:
                     assert (len(fined_label) == 2 and '-' in fined_label)
                     boundary_comb.append(self.fined_label2idx[fined_label])
-        if len(not_comb) > 0:
-            combs.append(not_comb)
-        if len(boundary_comb) > 0:
-            combs.append(boundary_comb)
         if len(not_comb) > 0 and len(boundary_comb) > 0:
             combs.append(not_comb + boundary_comb)
         return combs

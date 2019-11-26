@@ -65,8 +65,8 @@ class Config:
 
         self.use_fined_labels = args.use_fined_labels
         self.add_label_constraint = args.add_label_constraint
-        self.use_boundary = args.use_boundary
-        self.use_neg_labels = args.use_neg_labels
+        self.use_boundary = 1
+        self.use_neg_labels = 1
         self.new_type = args.new_type
         self.choose_by_new_type = args.choose_by_new_type
         self.typing_model = args.typing_model
