@@ -4,18 +4,22 @@
 ## To run this script in background: nohup bash pipeline.bash > YOUR_LOG_FILE 2>&1 &
 
 datasets=(conll2003)
-new_types=(ORG)
-train_nums=(10 20 50 100)
+new_type=MISC
+train_num=100
 choose_new_type=1
 
 
 device=cuda:1
-negs=(0 1)
-boundarys=(0 1)
-starts=(0 1 2 3 4)
+negs=(1)
+boundarys=(1)
+starts=(0)
 
 run_latent_model=0
 context_emb=none
+
+num_epoch=150
+emb=data/glove.6B.100d.txt
+
 
 if [ $run_latent_model = 0 ]
 then
@@ -25,7 +29,7 @@ then
            model_folder=${dataset}_${choose_new_type}
            log_file=logs/${model_folder}.log
            python3 trainer.py --dataset ${dataset} --model_folder ${model_folder} --use_fined_labels 0 --device ${device} \
-                    --choose_by_new_type ${choose_new_type}  > ${log_file} 2>&1 &
+                    --choose_by_new_type ${choose_new_type} --train_num ${train_num} --embedding_file ${emb}  > ${log_file} 2>&1 &
 
     done
 
@@ -54,9 +58,10 @@ else
                     start=${starts[$s]}
                     model_folder=${dataset}_${start}_neg_${neg}_boundary_${boundary}_${context_emb}
                     log_file=logs/${dataset}_${start}_neg_${neg}_boundary_${boundary}_${context_emb}.log
-                    python3 trainer.py --dataset ${dataset}  --device ${device} --model_folder ${model_folder} \
-                     --add_label_constraint 1 --new_type MISC --use_neg_labels ${neg} --use_boundary ${boundary} --use_fined_labels 1 \
-                     --inference_method softmax --use_hypergraph 1 --start_num ${start} --context_emb ${context_emb} > ${log_file} 2>&1
+                    python3 trainer.py --dataset ${dataset}  --device ${device} --model_folder ${model_folder} --embedding_file ${emb} \
+                     --add_label_constraint 1 --new_type ${new_type} --use_neg_labels ${neg} --use_boundary ${boundary} --use_fined_labels 1 \
+                     --inference_method softmax --use_hypergraph 1 --start_num ${start} --num_epocs ${num_epoch} \
+                     --train_num ${train_num}  --context_emb ${context_emb} > ${log_file} 2>&1
                 done
             done
         done
