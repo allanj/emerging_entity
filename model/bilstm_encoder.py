@@ -216,10 +216,7 @@ class BiLSTMEncoder(nn.Module):
             k += 1
             layers.append(mapping_weight)
             weight_mask = mapping_weight
-            for i in range(mapping_weight.shape[0]):
-                for j in range(mapping_weight.shape[1]):
-                    if mapping_weight[i, j] != 0:
-                        weight_mask[i, j] == 1
+            weight_mask[np.where(mapping_weight != 0 )] = 1
             weight_masks.append(weight_mask)
         return np.concatenate(layers), np.concatenate(weight_masks)
 
@@ -299,7 +296,8 @@ class BiLSTMEncoder(nn.Module):
         :return: emission scores (batch_size, sent_len, hidden_dim)
         """
         if self.use_fined_labels:
-            self.fined2labels.weight.data = self.fined2labels.weight.data * self.weight_mask
+            weight_mask = torch.from_numpy(self.weight_mask).float().to(self.device)
+            self.fined2labels.weight.data = self.fined2labels.weight.data * weight_mask
         word_emb = self.word_embedding(word_seq_tensor)
         if self.context_emb != ContextEmb.none:
             word_emb = torch.cat((word_emb, batch_context_emb.to(self.device)), 2)
