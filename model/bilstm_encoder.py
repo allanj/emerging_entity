@@ -121,7 +121,7 @@ class BiLSTMEncoder(nn.Module):
             """
             Second step
             """
-            label_mapping_weight = self.init_dense_label_mapping_weight()
+            label_mapping_weight, self.weight_mask = self.init_dense_label_mapping_weight()
             row = label_mapping_weight.shape[0] ##should be equal to `self.max_num_combinations` x `self.label_size`
             self.fined2labels = nn.Linear(self.fined_label_size, row, bias=False).to(self.device)
             self.inference_method = IF[config.inference_method]
@@ -187,9 +187,11 @@ class BiLSTMEncoder(nn.Module):
         :return:
         """
         layers = []
+        weight_masks = []
         k = 0
         self.mask = np.zeros((self.max_num_combinations, self.label_size))
         for num in range(0, self.max_num_combinations):
+            weight_mask = np.zeros((self.label_size, self.fined_label_size))
             mapping_weight = np.zeros((self.label_size, self.fined_label_size))
             for coarse_label in self.label2idx:
                 combs = self.coarse_label2comb[coarse_label]
@@ -213,7 +215,13 @@ class BiLSTMEncoder(nn.Module):
                 
             k += 1
             layers.append(mapping_weight)
-        return np.concatenate(layers)
+            weight_mask = mapping_weight
+            for i in range(mapping_weight.shape[0]):
+                for j in range(mapping_weight.shape[1]):
+                    if mapping_weight[i, j] != 0:
+                        weight_mask[i, j] == 1
+            weight_masks.append(weight_mask)
+        return np.concatenate(layers), np.concatenate(weight_masks)
 
     def find_other_fined_idx(self, coarse_label:str) -> List[int]:
         """
@@ -290,7 +298,8 @@ class BiLSTMEncoder(nn.Module):
         :param char_seq_lens: numpy (batch_size * sent_len , 1)
         :return: emission scores (batch_size, sent_len, hidden_dim)
         """
-
+        if self.use_fined_labels:
+            self.fined2labels.weight.data = self.fined2labels.weight.data * self.weight_mask
         word_emb = self.word_embedding(word_seq_tensor)
         if self.context_emb != ContextEmb.none:
             word_emb = torch.cat((word_emb, batch_context_emb.to(self.device)), 2)
