@@ -233,7 +233,7 @@ class BiLSTMEncoder(nn.Module):
         :param coarse_label:
         :return: a list of valid indexes
         """
-        combs = [[]] ## the first one is the
+        combs = [] ## the first one is it self (NOTE: removed for now)
         not_comb = [] ## the second one connect all the negation.
         boundary_comb = []
         for fined_label in self.fined_label2idx:
@@ -244,10 +244,10 @@ class BiLSTMEncoder(nn.Module):
                 if len(fined_label) == 2 and coarse_label[:2] == fined_label[:2] and self.use_boundary:
                     assert (len(fined_label) == 2 and '-' in fined_label)
                     boundary_comb.append(self.fined_label2idx[fined_label])
-        if len(not_comb) > 0:
-            combs.append(not_comb)
-        if len(boundary_comb) > 0:
-            combs.append(boundary_comb)
+        # if len(not_comb) > 0:
+        #     combs.append(not_comb)
+        # if len(boundary_comb) > 0:
+        #     combs.append(boundary_comb)
         if len(not_comb) > 0 and len(boundary_comb) > 0:
             combs.append(not_comb + boundary_comb)
         return combs
