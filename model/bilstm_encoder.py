@@ -121,7 +121,7 @@ class BiLSTMEncoder(nn.Module):
             """
             Second step
             """
-            label_mapping_weight = self.init_dense_label_mapping_weight()
+            label_mapping_weight, self.weight_mask = self.init_dense_label_mapping_weight()
             row = label_mapping_weight.shape[0] ##should be equal to `self.max_num_combinations` x `self.label_size`
             self.fined2labels = nn.Linear(self.fined_label_size, row, bias=False).to(self.device)
             self.inference_method = IF[config.inference_method]
@@ -153,7 +153,7 @@ class BiLSTMEncoder(nn.Module):
                     mapping_weight[coarse_idx, self.fined_label2idx[fined_label]] = 1.0
         return mapping_weight
 
-    def init_dense_label_mapping_weight(self) -> np.ndarray:
+    def init_dense_label_mapping_weight(self):
         """
         When we have the maximum number of combinations, we create a mapping weight
         for each type of combination (k = 0 -> maximum_number_of_combination).
@@ -187,9 +187,11 @@ class BiLSTMEncoder(nn.Module):
         :return:
         """
         layers = []
+        weight_masks = []
         k = 0
         self.mask = np.zeros((self.max_num_combinations, self.label_size))
         for num in range(0, self.max_num_combinations):
+            weight_mask = np.zeros((self.label_size, self.fined_label_size))
             mapping_weight = np.zeros((self.label_size, self.fined_label_size))
             for coarse_label in self.label2idx:
                 combs = self.coarse_label2comb[coarse_label]
@@ -204,10 +206,17 @@ class BiLSTMEncoder(nn.Module):
                 self.mask[num, self.label2idx[coarse_label]] = 1
                 orig_fined_label_idx = self.fined_label2idx[coarse_label]
                 mapping_weight[self.label2idx[coarse_label], orig_fined_label_idx] = 1.0
-                mapping_weight[self.label2idx[coarse_label], combs[k]] = 1.0
+                if len(combs[k]) > 0:
+                    for idx in combs[k]:
+                        if len(self.fined_labels[idx]) == 2:
+                            mapping_weight[self.label2idx[coarse_label], idx] = -2.0
+                        else:
+                            mapping_weight[self.label2idx[coarse_label], idx] = 1.0
             k += 1
             layers.append(mapping_weight)
-        return np.concatenate(layers)
+            weight_mask[np.where(mapping_weight != 0 )] = 1
+            weight_masks.append(weight_mask)
+        return np.concatenate(layers), np.concatenate(weight_masks)
 
     def find_other_fined_idx(self, coarse_label:str) -> List[int]:
         """
@@ -285,6 +294,9 @@ class BiLSTMEncoder(nn.Module):
         :return: emission scores (batch_size, sent_len, hidden_dim)
         """
 
+        if self.use_fined_labels:
+            weight_mask = torch.from_numpy(self.weight_mask).float().to(self.device)
+            self.fined2labels.weight = self.fined2labels.weight * weight_mask
         word_emb = self.word_embedding(word_seq_tensor)
         if self.context_emb != ContextEmb.none:
             word_emb = torch.cat((word_emb, batch_context_emb.to(self.device)), 2)
