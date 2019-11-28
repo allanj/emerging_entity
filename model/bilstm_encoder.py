@@ -290,9 +290,8 @@ class BiLSTMEncoder(nn.Module):
         """
 
         if self.use_fined_labels:
-            weight_mask = torch.from_numpy(self.weight_mask).float().to(self.device)
             with torch.no_grad():
-                self.fined2labels.weight = self.fined2labels.weight * weight_mask
+                weight_mask = torch.from_numpy(self.weight_mask).float().to(self.device)
                 self.fined2labels.weight.mul_(weight_mask)
         word_emb = self.word_embedding(word_seq_tensor)
         if self.context_emb != ContextEmb.none:
