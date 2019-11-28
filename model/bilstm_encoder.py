@@ -206,12 +206,7 @@ class BiLSTMEncoder(nn.Module):
                 self.mask[num, self.label2idx[coarse_label]] = 1
                 orig_fined_label_idx = self.fined_label2idx[coarse_label]
                 mapping_weight[self.label2idx[coarse_label], orig_fined_label_idx] = 1.0
-                if len(combs[k]) > 0:
-                    for idx in combs[k]:
-                        if len(self.fined_labels[idx]) == 2:
-                            mapping_weight[self.label2idx[coarse_label], idx] = -2.0
-                        else:
-                            mapping_weight[self.label2idx[coarse_label], idx] = 1.0
+                mapping_weight[self.label2idx[coarse_label], combs[k]] = 1.0
             k += 1
             layers.append(mapping_weight)
             weight_mask[np.where(mapping_weight != 0 )] = 1
@@ -242,7 +237,7 @@ class BiLSTMEncoder(nn.Module):
         :param coarse_label:
         :return: a list of valid indexes
         """
-        combs = [] ## the first one is it self (NOTE: removed for now)
+        combs = [[]] ## the first one is it self (NOTE: removed for now)
         not_comb = [] ## the second one connect all the negation.
         boundary_comb = []
         for fined_label in self.fined_label2idx:
@@ -253,10 +248,10 @@ class BiLSTMEncoder(nn.Module):
                 if len(fined_label) == 2 and coarse_label[:2] == fined_label[:2] and self.use_boundary:
                     assert (len(fined_label) == 2 and '-' in fined_label)
                     boundary_comb.append(self.fined_label2idx[fined_label])
-        # if len(not_comb) > 0:
-        #     combs.append(not_comb)
-        # if len(boundary_comb) > 0:
-        #     combs.append(boundary_comb)
+        if len(not_comb) > 0:
+            combs.append(not_comb)
+        if len(boundary_comb) > 0:
+            combs.append(boundary_comb)
         if len(not_comb) > 0 and len(boundary_comb) > 0:
             combs.append(not_comb + boundary_comb)
         return combs
@@ -296,7 +291,9 @@ class BiLSTMEncoder(nn.Module):
 
         if self.use_fined_labels:
             weight_mask = torch.from_numpy(self.weight_mask).float().to(self.device)
-            self.fined2labels.weight = self.fined2labels.weight * weight_mask
+            with torch.no_grad():
+                self.fined2labels.weight = self.fined2labels.weight * weight_mask
+                self.fined2labels.weight.mul_(weight_mask)
         word_emb = self.word_embedding(word_seq_tensor)
         if self.context_emb != ContextEmb.none:
             word_emb = torch.cat((word_emb, batch_context_emb.to(self.device)), 2)
