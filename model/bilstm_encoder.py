@@ -36,7 +36,7 @@ class BiLSTMEncoder(nn.Module):
         super(BiLSTMEncoder, self).__init__()
 
         self.label_size = config.label_size
-        self.fined_label_size = config.fined_label_size if config.use_fined_labels else 0
+        self.fined_label_size = config.fined_label_size if config.use_fined_labels or config.latent_base else 0
         self.device = config.device
         self.use_char = config.use_char_rnn
         self.context_emb = config.context_emb
@@ -49,6 +49,9 @@ class BiLSTMEncoder(nn.Module):
         self.use_boundary = config.use_boundary
         self.fined_label2idx = config.fined_label2idx
         self.fined_labels = config.idx2fined_labels
+
+        self.latent_base = config.latent_base
+        self.latent_base_labels = config.latent_labels
 
         self.input_size = config.embedding_dim
         if self.context_emb != ContextEmb.none:
@@ -73,9 +76,9 @@ class BiLSTMEncoder(nn.Module):
         if print_info:
             print("[Model Info] Final Hidden Size: {}".format(final_hidden_dim))
 
-        tag_size = self.fined_label_size if self.use_fined_labels else self.label_size
+        tag_size = self.fined_label_size if self.use_fined_labels or self.latent_base else self.label_size
         self.hidden2tag = nn.Linear(final_hidden_dim, tag_size).to(self.device)
-        if self.use_fined_labels:
+        if self.use_fined_labels or self.latent_base:
             """
             The idea here is to build many mapping weights (where each with size: self.label_size x self.fined_label_size)
             for each type of the hyperedge. 
@@ -103,11 +106,11 @@ class BiLSTMEncoder(nn.Module):
             for coarse_label in self.label2idx:
                 if coarse_label not in auxilary_labels:
                     combs = []
-                    valid_indexs = self.find_other_fined_idx(coarse_label)
+                    valid_indexs = self.find_other_fined_idx(coarse_label, is_latent_base=self.latent_base)
                     ## this commented code is used to test the equivalence with previous implementation. (Also need to remove O in auxilary labels)
                     if config.use_hypergraph and coarse_label != config.O:
                         if config.heuristic:
-                            combs = self.find_heuristic_combination(coarse_label=coarse_label)
+                            combs = self.find_heuristic_combination(coarse_label=coarse_label, is_latent_base=self.latent_base)
                         else:
                             for num in range(start, len(valid_indexs)+1):
                                 combs += list(combinations(self.find_other_fined_idx(coarse_label), num))
@@ -213,14 +216,19 @@ class BiLSTMEncoder(nn.Module):
             weight_masks.append(weight_mask)
         return np.concatenate(layers), np.concatenate(weight_masks)
 
-    def find_other_fined_idx(self, coarse_label:str) -> List[int]:
+    def find_other_fined_idx(self, coarse_label:str, is_latent_base: bool = False) -> List[int]:
         """
         According to the coarse labels in the CRF layer, find a list of valid fined label indexs.
         :param coarse_label:
+        :param is_latent_base: whether the underlying model is a latent variable baseline.
         :return: a list of valid indexes
         """
 
         valid_fined_label_idxs = []
+
+        if is_latent_base:
+            return [self.fined_label2idx[fined_label] for fined_label in self.latent_base_labels]
+
         for fined_label in self.fined_label2idx:
             if fined_label.endswith("_NOT"):
                 if (coarse_label[:2] == fined_label[:2] and fined_label[:-4] != coarse_label) or coarse_label == "O":
@@ -231,13 +239,20 @@ class BiLSTMEncoder(nn.Module):
                     valid_fined_label_idxs.append(self.fined_label2idx[fined_label])
         return valid_fined_label_idxs
 
-    def find_heuristic_combination(self, coarse_label:str) -> List[List[int]]:
+    def find_heuristic_combination(self, coarse_label:str, is_latent_base: bool = False) -> List[List[int]]:
         """
         According to the coarse labels in the CRF layer, find heuristic combinations
         :param coarse_label:
         :return: a list of valid indexes
         """
         combs = [[]] ## the first one is it self (NOTE: removed for now)
+
+        if is_latent_base:
+            combs.append([self.fined_label2idx[fined_label] for fined_label in self.latent_base_labels[:3]  ])
+            combs.append([  self.fined_label2idx[self.latent_base_labels[-1]]   ])
+            combs.append([self.fined_label2idx[fined_label] for fined_label in self.latent_base_labels ])
+            return combs
+
         not_comb = [] ## the second one connect all the negation.
         boundary_comb = []
         for fined_label in self.fined_label2idx:
@@ -289,7 +304,7 @@ class BiLSTMEncoder(nn.Module):
         :return: emission scores (batch_size, sent_len, hidden_dim)
         """
 
-        if self.use_fined_labels:
+        if self.use_fined_labels or self.latent_base:
             with torch.no_grad():
                 weight_mask = torch.from_numpy(self.weight_mask).float().to(self.device)
                 self.fined2labels.weight.mul_(weight_mask)
@@ -313,7 +328,7 @@ class BiLSTMEncoder(nn.Module):
         feature_out = self.drop_lstm(lstm_out)
 
         outputs = self.hidden2tag(feature_out)
-        if self.use_fined_labels:
+        if self.use_fined_labels or self.latent_base:
             outputs = self.fined2labels(outputs)
             #batch_size, sent_len, num_fined_labels = outputs.size()
             #outputs = outputs.view(batch_size, sent_len, num_fined_labels, 1).expand(batch_size, sent_len, num_fined_labels, self.label_size)

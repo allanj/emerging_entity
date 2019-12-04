@@ -76,6 +76,9 @@ class Config:
         self.use_hypergraph = args.use_hypergraph
         self.heuristic = args.heuristic
 
+        self.latent_base = args.latent_base
+        self.latent_labels: List[str] = ["Latent_1", "Latent_2", "Latent_3", "Latent_4"]
+
         self.dataset = args.dataset
         self.dev_extraction = "results/extraction_dev.results"
         self.test_extraction = "results/extraction_test.results"
@@ -215,7 +218,7 @@ class Config:
         """
         self.label2idx[self.PAD] = len(self.label2idx)
         self.idx2labels.append(self.PAD)
-        if self.use_fined_labels:
+        if self.use_fined_labels or self.latent_base:
             self.fined_label2idx[self.PAD] = len(self.fined_label2idx)
             self.idx2fined_labels.append(self.PAD)
         for inst in insts:
@@ -239,6 +242,10 @@ class Config:
                             self.idx2fined_labels.append(prefix_label)
                             self.fined_label2idx[prefix_label] = len(self.fined_label2idx)
 
+                if self.latent_base and label not in self.fined_label2idx:
+                    self.idx2fined_labels.append(label)
+                    self.fined_label2idx[label] = len(self.fined_label2idx)
+
         if self.use_fined_labels:
             if self.B + self.new_type not in self.label2idx:
                 self.label2idx[self.B + self.new_type] = len(self.label2idx)
@@ -253,6 +260,14 @@ class Config:
                 self.label2idx[self.S + self.new_type] = len(self.label2idx)
                 self.idx2labels.append(self.S + self.new_type)
 
+        if self.latent_base:
+            for latent_label in self.latent_labels: ## add L1, L2, L3, L4
+                if latent_label not in self.fined_label2idx:
+                    self.idx2fined_labels.append(latent_label)
+                    self.fined_label2idx[latent_label] = len(self.fined_label2idx)
+
+
+
         self.label2idx[self.START_TAG] = len(self.label2idx)
         self.idx2labels.append(self.START_TAG)
         self.label2idx[self.STOP_TAG] = len(self.label2idx)
@@ -261,7 +276,7 @@ class Config:
         print("#labels: {}".format(self.label_size))
         print("label 2idx: {}".format(self.label2idx))
 
-        if self.use_fined_labels:
+        if self.use_fined_labels or self.latent_base:
             self.fined_label2idx[self.START_TAG] = len(self.fined_label2idx)
             self.idx2fined_labels.append(self.START_TAG)
             self.fined_label2idx[self.STOP_TAG] = len(self.fined_label2idx)

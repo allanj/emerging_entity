@@ -11,7 +11,6 @@ from common import Instance
 from termcolor import colored
 import os
 from config.utils import load_elmo_vec
-from typing_extracted_results import read_extraction_results
 import pickle
 import tarfile
 import shutil
@@ -70,6 +69,8 @@ def parse_arguments(parser):
     parser.add_argument('--use_fined_labels', type=int, default=1, choices=[0, 1], help="use fined labels or not, this argument determine the latent model")
     parser.add_argument('--heuristic', type=int, default=0, choices=[0, 1],
                         help="use heuristic combinations, using this will disable to ability of the start")
+    parser.add_argument('--latent_base', type=int, default=0, choices=[0, 1],
+                        help="a baseline with random latent variables.")
     """
     NOTE: if you use end2end, `extraction_model` and `typing_model` should be 0 both.
     """
