@@ -58,7 +58,7 @@ class LinearCRF(nn.Module):
                         transition[l1, l2] = -10000.0
 
     @overrides
-    def forward(self, lstm_scores, word_seq_lens, typing_mask, tags, mask):
+    def forward(self, lstm_scores, word_seq_lens, typing_mask, label_tag_mask):
         """
         Calculate the negative log-likelihood
         :param lstm_scores:
@@ -71,7 +71,7 @@ class LinearCRF(nn.Module):
         if typing_mask is not None:
             typing_mask = typing_mask.log()
         unlabed_score = self.forward_unlabeled(all_scores, word_seq_lens, typing_mask=typing_mask)
-        labeled_score = self.forward_labeled(all_scores, word_seq_lens, tags, mask)
+        labeled_score = self.forward_labeled(all_scores, word_seq_lens, label_tag_mask)
         return unlabed_score, labeled_score
 
     def forward_unlabeled(self, all_scores: torch.Tensor, word_seq_lens: torch.Tensor, typing_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
@@ -105,7 +105,7 @@ class LinearCRF(nn.Module):
 
         return torch.sum(last_alpha)
 
-    def forward_labeled(self, all_scores: torch.Tensor, word_seq_lens: torch.Tensor, tags: torch.Tensor, masks: torch.Tensor) -> torch.Tensor:
+    def forward_labeled(self, all_scores: torch.Tensor, word_seq_lens: torch.Tensor, label_tag_mask: torch.Tensor) -> torch.Tensor:
         '''
         Calculate the scores for the gold instances.
         :param all_scores: (batch, seq_len, label_size, label_size)
@@ -114,20 +114,44 @@ class LinearCRF(nn.Module):
         :param masks: batch, seq_len
         :return: sum of score for the gold sequences Shape: (batch_size)
         '''
-        batchSize = all_scores.shape[0]
-        sentLength = all_scores.shape[1]
+        batch_size = all_scores.size(0)
+        seq_len = all_scores.size(1)
+        label_tag_mask = label_tag_mask.float().log()
+        alpha = torch.zeros(batch_size, seq_len, self.label_size).to(self.device)
 
-        ## all the scores to current labels: batch, seq_len, all_from_label?
-        currentTagScores = torch.gather(all_scores, 3, tags.view(batchSize, sentLength, 1, 1).expand(batchSize, sentLength, self.label_size, 1)).view(batchSize, -1, self.label_size)
-        if sentLength != 1:
-            tagTransScoresMiddle = torch.gather(currentTagScores[:, 1:, :], 2, tags[:, : sentLength - 1].view(batchSize, sentLength - 1, 1)).view(batchSize, -1)
-        tagTransScoresBegin = currentTagScores[:, 0, self.start_idx]
-        endTagIds = torch.gather(tags, 1, word_seq_lens.view(batchSize, 1) - 1)
-        tagTransScoresEnd = torch.gather(self.transition[:, self.end_idx].view(1, self.label_size).expand(batchSize, self.label_size), 1,  endTagIds).view(batchSize)
-        score = torch.sum(tagTransScoresBegin) + torch.sum(tagTransScoresEnd)
-        if sentLength != 1:
-            score += torch.sum(tagTransScoresMiddle.masked_select(masks[:, 1:]))
-        return score
+        alpha[:, 0, :] = all_scores[:, 0, self.start_idx,:]  ## the first position of all labels = (the transition from start - > all labels) + current emission.
+        alpha[:, 0, :] += label_tag_mask[:, 0, :]
+
+        for word_idx in range(1, seq_len):
+            ## batch_size, self.label_size, self.label_size
+            before_log_sum_exp = alpha[:, word_idx - 1, :].view(batch_size, self.label_size, 1).expand(batch_size, self.label_size, self.label_size) \
+                                        + all_scores[:,word_idx,:,:]
+            alpha[:, word_idx, :] = log_sum_exp_pytorch(before_log_sum_exp)
+            alpha[:, word_idx, :] += label_tag_mask[:, word_idx,:]
+
+        ### batch_size x label_size
+        last_alpha = torch.gather(alpha, 1,
+                                  word_seq_lens.view(batch_size, 1, 1).expand(batch_size, 1, self.label_size) - 1).view(
+            batch_size, self.label_size)
+        last_alpha += self.transition[:, self.end_idx].view(1, self.label_size).expand(batch_size, self.label_size)
+        last_alpha = log_sum_exp_pytorch(last_alpha.view(batch_size, self.label_size, 1)).view(batch_size)
+
+        return torch.sum(last_alpha)
+
+        # batchSize = all_scores.shape[0]
+        # sentLength = all_scores.shape[1]
+        # label_tag_mask = label_tag_mask.float().log()
+        # ## all the scores to current labels: batch, seq_len, all_from_label?
+        # currentTagScores = torch.gather(all_scores, 3, tags.view(batchSize, sentLength, 1, 1).expand(batchSize, sentLength, self.label_size, 1)).view(batchSize, -1, self.label_size)
+        # if sentLength != 1:
+        #     tagTransScoresMiddle = torch.gather(currentTagScores[:, 1:, :], 2, tags[:, : sentLength - 1].view(batchSize, sentLength - 1, 1)).view(batchSize, -1)
+        # tagTransScoresBegin = currentTagScores[:, 0, self.start_idx]
+        # endTagIds = torch.gather(tags, 1, word_seq_lens.view(batchSize, 1) - 1)
+        # tagTransScoresEnd = torch.gather(self.transition[:, self.end_idx].view(1, self.label_size).expand(batchSize, self.label_size), 1,  endTagIds).view(batchSize)
+        # score = torch.sum(tagTransScoresBegin) + torch.sum(tagTransScoresEnd)
+        # if sentLength != 1:
+        #     score += torch.sum(tagTransScoresMiddle.masked_select(masks[:, 1:]))
+        # return score
 
     def calculate_all_scores(self, lstm_scores: torch.Tensor) -> torch.Tensor:
         """

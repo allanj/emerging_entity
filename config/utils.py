@@ -1,12 +1,12 @@
 import numpy as np
 import torch
-from typing import List, Tuple, Dict
-from common import Instance
+from typing import List, Tuple, Dict, Set
+from common import Instance, Span
 import pickle
 import torch.optim as optim
 
 import torch.nn as nn
-
+import random
 
 
 from config import PAD, ContextEmb, Config
@@ -24,14 +24,14 @@ def log_sum_exp_pytorch(vec: torch.Tensor) -> torch.Tensor:
     maxScoresExpanded = maxScores.view(vec.shape[0] ,1 , vec.shape[2]).expand(vec.shape[0], vec.shape[1], vec.shape[2])
     return maxScores + torch.log(torch.sum(torch.exp(vec - maxScoresExpanded), 1))
 
-def batching_list_instances(config: Config, insts: List[Instance]):
+def batching_list_instances(config: Config, insts: List[Instance], is_train:bool = True):
     train_num = len(insts)
     batch_size = config.batch_size
     total_batch = train_num // batch_size + 1 if train_num % batch_size != 0 else train_num // batch_size
     batched_data = []
     for batch_id in range(total_batch):
         one_batch_insts = insts[batch_id * batch_size:(batch_id + 1) * batch_size]
-        batched_data.append(simple_batching(config, one_batch_insts))
+        batched_data.append(simple_batching(config, one_batch_insts, is_train=is_train))
 
     return batched_data
 
@@ -57,7 +57,7 @@ def build_type_id_mapping(config: Config) -> Dict[int, List[int]]:
 
 
 
-def simple_batching(config, insts: List[Instance]) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor,torch.Tensor,torch.Tensor,torch.Tensor,torch.Tensor]:
+def simple_batching(config, insts: List[Instance], is_train: bool = True) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor,torch.Tensor,torch.Tensor,torch.Tensor,torch.Tensor]:
 
     """
     batching these instances together and return tensors. The seq_tensors for word and char contain their word id and char id.
@@ -71,6 +71,7 @@ def simple_batching(config, insts: List[Instance]) -> Tuple[torch.Tensor, torch.
     """
     batch_size = len(insts)
     batch_data = insts
+    label_size = config.label_size
     # probably no need to sort because we will sort them in the model instead.
     # batch_data = sorted(insts, key=lambda inst: len(inst.input.words), reverse=True) ##object-based not direct copy
     word_seq_len = torch.LongTensor(list(map(lambda inst: len(inst.input.words), batch_data)))
@@ -86,13 +87,30 @@ def simple_batching(config, insts: List[Instance]) -> Tuple[torch.Tensor, torch.
         context_emb_tensor = torch.zeros((batch_size, max_seq_len, emb_size))
 
     word_seq_tensor = torch.zeros((batch_size, max_seq_len), dtype=torch.long)
-    label_seq_tensor =  torch.zeros((batch_size, max_seq_len), dtype=torch.long)
+    # label_seq_tensor =  torch.zeros((batch_size, max_seq_len), dtype=torch.long)
+    label_mask_tensor = torch.zeros((batch_size, max_seq_len, label_size), dtype=torch.long) if is_train else torch.zeros((batch_size, max_seq_len), dtype=torch.long)
     char_seq_tensor = torch.zeros((batch_size, max_seq_len, max_char_seq_len), dtype=torch.long)
 
     for idx in range(batch_size):
         word_seq_tensor[idx, :word_seq_len[idx]] = torch.LongTensor(batch_data[idx].word_ids)
-        if batch_data[idx].output_ids:
-            label_seq_tensor[idx, :word_seq_len[idx]] = torch.LongTensor(batch_data[idx].output_ids)
+        if batch_data[idx].output_ids is not None:
+
+            # label_seq_tensor[idx, :word_seq_len[idx]] = torch.LongTensor(batch_data[idx].output_ids)
+            if is_train:
+                for pos in range(len(batch_data[idx].output_ids)):
+                    label_mask_tensor[idx, pos, batch_data[idx].output_ids[pos]] = 1
+                    # if batch_data[idx].output_ids[pos] == config.label2idx["O"] and is_train:
+                    if ("MISC" in config.idx2labels[batch_data[idx].output_ids[pos]] ) and is_train and config.entity_keep_ratio < 1.0:
+                        candidate_prefix = config.idx2labels[batch_data[idx].output_ids[pos]][:2]
+                        label_mask_tensor[idx, pos, config.label2idx[candidate_prefix + config.new_type] ] = 1
+                        # for label in config.label2idx:
+                        #     if config.new_type in label and config.entity_keep_ratio < 1.0:
+                        #         label_mask_tensor[idx, pos, config.label2idx[label]] = 1
+                    ## To ensure we won't get Nan during training, flip to 0, you will get nan error
+                label_mask_tensor[idx, word_seq_len[idx]:, :] = 1
+            else:
+                label_mask_tensor[idx, :word_seq_len[idx]] = torch.LongTensor(batch_data[idx].output_ids)
+
         if config.context_emb != ContextEmb.none:
             context_emb_tensor[idx, :word_seq_len[idx], :] = torch.from_numpy(batch_data[idx].elmo_vec)
 
@@ -102,7 +120,8 @@ def simple_batching(config, insts: List[Instance]) -> Tuple[torch.Tensor, torch.
             char_seq_tensor[idx, wordIdx, 0: 1] = torch.LongTensor([config.char2idx[PAD]])   ###because line 119 makes it 1, every single character should have a id. but actually 0 is enough
 
     word_seq_tensor = word_seq_tensor.to(config.device)
-    label_seq_tensor = label_seq_tensor.to(config.device)
+    # label_seq_tensor = label_seq_tensor.to(config.device)
+    label_mask_tensor = label_mask_tensor.to(config.device)
     char_seq_tensor = char_seq_tensor.to(config.device)
     word_seq_len = word_seq_len.to(config.device)
     char_seq_len = char_seq_len.to(config.device)
@@ -137,7 +156,7 @@ def simple_batching(config, insts: List[Instance]) -> Tuple[torch.Tensor, torch.
             typing_mask[idx, word_seq_len[idx]:, :] = 1e-10 ## if we dont't do this, the objective will have NaN issue.
         typing_mask = typing_mask.to(config.device)
 
-    return word_seq_tensor, word_seq_len, context_emb_tensor, char_seq_tensor, char_seq_len, typing_mask, label_seq_tensor
+    return word_seq_tensor, word_seq_len, context_emb_tensor, char_seq_tensor, char_seq_len, typing_mask, label_mask_tensor
 
 
 def lr_decay(config, optimizer: optim.Optimizer, epoch: int) -> optim.Optimizer:
@@ -215,3 +234,63 @@ def get_metric(p_num: int, total_num: int, total_predicted_num: int) -> Tuple[fl
     recall = p_num * 1.0 / total_num * 100 if total_num != 0 else 0
     fscore = 2.0 * precision * recall / (precision + recall) if precision != 0 or recall != 0 else 0
     return precision, recall, fscore
+
+
+
+def remove_data(trains: List[Instance], conf: Config, type: str, change_to_type:str = "O"):
+    print("[Data Info] Removing the entities")
+    span_set = remove_entites(trains, conf, type, change_to_type)
+    # print(f"entities removed: {span_set}")
+    conf.map_insts_ids(trains)
+    random.shuffle(trains)
+    for inst in trains:
+        inst.is_prediction = [False] * len(inst.input)
+        for pos, label in enumerate(inst.output):
+            if label == conf.O:
+                inst.is_prediction[pos] = True
+
+
+def remove_entites(train_insts: List[Instance], config: Config, type: str, change_to_type: str = "O") -> Set:
+    """
+    Remove certain number of entities and make them become O label
+    :param train_insts:
+    :param config:
+    :return:
+    """
+    all_spans = []
+    for inst in train_insts:
+        output = inst.output
+        start = -1
+        for i in range(len(output)):
+            if output[i].startswith("B-"):
+                start = i
+            if output[i].startswith("E-"):
+                end = i
+                if output[i][2:] == type:
+                    all_spans.append(Span(start, end, output[i][2:], inst_id=inst.id))
+            if output[i].startswith("S-"):
+                if output[i][2:] == type:
+                    all_spans.append(Span(i, i, output[i][2:], inst_id=inst.id))
+    random.shuffle(all_spans)
+
+    span_set = set()
+    num_entity_removed = round(len(all_spans) * (1 - config.entity_keep_ratio))
+    for i in range(num_entity_removed):
+        span = all_spans[i]
+        id = span.inst_id
+        output = train_insts[id].output
+        if change_to_type == config.O:
+            for j in range(span.left, span.right + 1):
+                output[j] = change_to_type
+        else:
+            if span.left == span.right:
+                output[span.left] = config.S + change_to_type
+            else:
+                output[span.left] = config.B  + change_to_type
+                output[span.right] = config.E + change_to_type
+                for j in range(span.left + 1, span.right):
+                    output[j] = config.I +  change_to_type
+        span_str = ' '.join(train_insts[id].input.words[span.left:(span.right + 1)])
+        span_str = span.type + " " + span_str
+        span_set.add(span_str)
+    return span_set

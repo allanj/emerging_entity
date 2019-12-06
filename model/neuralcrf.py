@@ -33,7 +33,7 @@ class NNCRF(nn.Module):
                     chars: torch.Tensor,
                     char_seq_lens: torch.Tensor,
                     typing_mask: Optional[torch.Tensor],
-                    tags: torch.Tensor) -> torch.Tensor:
+                    label_mask_tensor: torch.Tensor) -> torch.Tensor:
         """
         Calculate the negative loglikelihood.
         :param words: (batch_size x max_seq_len)
@@ -51,10 +51,10 @@ class NNCRF(nn.Module):
         maskTemp = torch.arange(1, max_sent_len + 1, dtype=torch.long).view(1, max_sent_len).expand(batch_size, max_sent_len).to(self.device)
         mask = torch.le(maskTemp, word_seq_lens.view(batch_size, 1).expand(batch_size, max_sent_len)).to(self.device)
         if self.inferencer is not None:
-            unlabed_score, labeled_score =  self.inferencer(lstm_scores, word_seq_lens, typing_mask, tags, mask)
+            unlabed_score, labeled_score =  self.inferencer(lstm_scores, word_seq_lens, typing_mask, label_mask_tensor)
             loss = unlabed_score - labeled_score
         else:
-            loss = self.compute_nll_loss(lstm_scores, tags, mask, word_seq_lens)
+            loss = self.compute_nll_loss(lstm_scores, label_mask_tensor, mask, word_seq_lens)
         return loss
 
     def decode(self, batchInput: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:

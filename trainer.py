@@ -15,6 +15,7 @@ import pickle
 import tarfile
 import shutil
 from collections import Counter
+from config.utils import remove_data
 
 def set_seed(opt, seed):
     random.seed(seed)
@@ -44,9 +45,9 @@ def parse_arguments(parser):
     parser.add_argument('--lr_decay', type=float, default=0)
     parser.add_argument('--batch_size', type=int, default=10, help="default batch size is 10 (works well)")
     parser.add_argument('--num_epochs', type=int, default=100, help="Usually we set to 10.")
-    parser.add_argument('--train_num', type=int, default=-1, help="-1 means all the data")
-    parser.add_argument('--dev_num', type=int, default=-1, help="-1 means all the data")
-    parser.add_argument('--test_num', type=int, default=-1, help="-1 means all the data")
+    parser.add_argument('--train_num', type=int, default=500, help="-1 means all the data")
+    parser.add_argument('--dev_num', type=int, default=500, help="-1 means all the data")
+    parser.add_argument('--test_num', type=int, default=500, help="-1 means all the data")
     parser.add_argument('--start_num', type=int, default=0, help="the size of combinations")
 
     ##model hyperparameter
@@ -58,19 +59,23 @@ def parse_arguments(parser):
     parser.add_argument('--context_emb', type=str, default="none", choices=["none", "elmo"],
                         help="contextual word embedding")
 
-    parser.add_argument('--add_label_constraint', type=int, default=0, choices=[0, 1], help="Add BIES constraints")
-    parser.add_argument('--new_type', type=str, default="MISC", help="The new entity type for zero-shot entity recognition.")
+    parser.add_argument('--add_label_constraint', type=int, default=1, choices=[0, 1], help="Add BIES constraints")
+    parser.add_argument('--new_type', type=str, default="PER", help="The new entity type for zero-shot entity recognition.")
     
     parser.add_argument('--use_neg_labels', type=int, default=0, choices=[0, 1], help="Use finer labels before going to the CRF layer")
     parser.add_argument('--use_boundary', type=int, default=0, choices=[0, 1], help="Use boundary which contains prefix label")
     parser.add_argument('--choose_by_new_type', type=int, default=0, choices=[0, 1], help="Choose best model by the performance on new type entities!")
     parser.add_argument('--inference_method', type=str, default="softmax", choices=["sum", "max", "softmax"], help="Inference method for the latent-variable model!")
     parser.add_argument('--use_hypergraph', type=int, default=0, choices=[0, 1], help="Whether use hypergraph model or not")
-    parser.add_argument('--use_fined_labels', type=int, default=1, choices=[0, 1], help="use fined labels or not, this argument determine the latent model")
+    parser.add_argument('--use_fined_labels', type=int, default=0, choices=[0, 1], help="use fined labels or not, this argument determine the latent model")
     parser.add_argument('--heuristic', type=int, default=0, choices=[0, 1],
                         help="use heuristic combinations, using this will disable to ability of the start")
     parser.add_argument('--latent_base', type=int, default=0, choices=[0, 1],
                         help="a baseline with random latent variables.")
+
+    parser.add_argument('--entity_keep_ratio', type=float, default=0.5,  help="The ratio to keep entities")
+
+
     """
     NOTE: if you use end2end, `extraction_model` and `typing_model` should be 0 both.
     """
@@ -101,17 +106,17 @@ def train_model(config: Config, epoch: int, train_insts: List[Instance], dev_ins
     random.shuffle(train_insts)
 
     batched_data = batching_list_instances(config, train_insts)
-    dev_batches = batching_list_instances(config, dev_insts)
-    test_batches = batching_list_instances(config, test_insts)
+    dev_batches = batching_list_instances(config, dev_insts, is_train=False)
+    test_batches = batching_list_instances(config, test_insts, is_train=False)
 
     best_dev = [-1, 0]
     best_test = [-1, 0]
 
     model_folder = config.model_folder
     res_folder = "results"
-    if os.path.exists("model_files/" + model_folder):
-        raise FileExistsError(f"The folder model_files/{model_folder} exists. Please either delete it or create a new one "
-                              f"to avoid override.")
+    # if os.path.exists("model_files/" + model_folder):
+    #     raise FileExistsError(f"The folder model_files/{model_folder} exists. Please either delete it or create a new one "
+    #                           f"to avoid override.")
     model_name = "model_files/" + model_folder + "/lstm_crf.m".format()
     config_name = "model_files/" + model_folder + "/config.conf"
     res_name = f"{res_folder}/{model_folder}_test.results"
@@ -254,6 +259,10 @@ def main():
 
     print("num words: " + str(len(conf.word2idx)))
     # print(config.word2idx)
+
+    if conf.entity_keep_ratio < 1.0:
+        remove_data(trains, conf, conf.new_type, change_to_type="MISC")
+
     train_model(conf, conf.num_epochs, trains, devs, tests)
 
 

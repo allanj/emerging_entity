@@ -30,7 +30,9 @@ class Reader:
             for line in tqdm(f.readlines()):
                 line = line.rstrip()
                 if line == "":
-                    insts.append(Instance(Sentence(words), labels))
+                    inst = Instance(Sentence(words), labels)
+                    inst.set_id(len(insts))
+                    insts.append(inst)
                     words = []
                     labels = []
                     if len(insts) == number:
@@ -58,7 +60,9 @@ class Reader:
             for line in tqdm(f.readlines()):
                 line = line.rstrip()
                 if line == "":
-                    insts.append(Instance(Sentence(words), labels))
+                    inst = Instance(Sentence(words), labels)
+                    inst.set_id(len(insts))
+                    insts.append(inst)
                     words = []
                     labels = []
                     if len(insts) == number:
